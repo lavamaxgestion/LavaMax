@@ -98,21 +98,20 @@ function renderList(container, items) {
             <div class="day">${formatDate(item.fecha_entrega)}</div>
             <div class="hour">${hora}</div>
           </div>
-          <div>
-            <div>
+          <div class="order-card-body">
+            <div class="order-card-header">
               <strong>${escapeHtml(item.cliente_nombre)}</strong>
               <span class="badge badge-${item.estado}">${item.estado}</span>
               ${urgent ? '<span class="badge badge-urgente">Pronto</span>' : ""}
             </div>
             <div class="order-meta">
-              Tel: <strong>${escapeHtml(item.cliente_telefono || "-")}</strong>
-              &middot; ${escapeHtml(item.direccion || "Sin direccion")}
-              &middot; Lavadora: <strong>${escapeHtml(item.lavadora_codigo || item.lavadora_id || "-")}</strong>
-              &middot; ${item.dias_alquiler || 1} dia(s) &middot; ${formatMoney(item.total)}
+              <div>Tel: <strong>${escapeHtml(item.cliente_telefono || "-")}</strong></div>
+              <div>${escapeHtml(item.direccion || "Sin direccion")}</div>
+              <div>Lavadora: <strong>${escapeHtml(item.lavadora_codigo || item.lavadora_id || "-")}</strong> · ${item.dias_alquiler || 1} dia(s) · ${formatMoney(item.total)}</div>
             </div>
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}
           </div>
-          <div>
+          <div class="order-card-actions">
             <select class="estado-select" data-id="${item.id}">
               ${ESTADOS.map(
                 (e) =>

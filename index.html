@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>LavaMax</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,6 +11,8 @@
 </head>
 <body>
   <div id="toast" class="toast" hidden role="status"></div>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
 
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
@@ -56,7 +58,11 @@
 
     <main class="main" id="main">
       <header class="topbar">
-        <button type="button" class="btn-icon menu-toggle" id="menu-toggle" aria-label="Menu">=</button>
+        <button type="button" class="btn-icon menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+          <span class="menu-toggle-bar" aria-hidden="true"></span>
+        </button>
         <h1 class="page-title" id="page-title">Ordenes de solicitud</h1>
         <div class="topbar-actions" id="topbar-actions"></div>
       </header>

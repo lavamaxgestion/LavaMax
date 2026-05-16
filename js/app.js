@@ -22,8 +22,21 @@ const content = document.getElementById("content");
 const pageTitle = document.getElementById("page-title");
 const topbarActions = document.getElementById("topbar-actions");
 const sidebar = document.getElementById("sidebar");
+const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+const menuToggle = document.getElementById("menu-toggle");
 const toast = document.getElementById("toast");
 const dialogApi = document.getElementById("dialog-api");
+
+function setSidebarOpen(open) {
+  sidebar?.classList.toggle("open", open);
+  document.body.classList.toggle("sidebar-open", open);
+  if (sidebarBackdrop) {
+    sidebarBackdrop.hidden = !open;
+    sidebarBackdrop.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+  menuToggle?.setAttribute("aria-expanded", open ? "true" : "false");
+  menuToggle?.setAttribute("aria-label", open ? "Cerrar menu" : "Abrir menu");
+}
 
 window.showToast = (msg, type = "") => {
   toast.textContent = msg;
@@ -74,7 +87,7 @@ async function navigate() {
     document.getElementById("btn-retry-view")?.addEventListener("click", navigate);
   } finally {
     if (token === navToken) {
-      sidebar.classList.remove("open");
+      setSidebarOpen(false);
       showMockBanner();
     }
   }
@@ -104,8 +117,16 @@ document.querySelectorAll(".nav-link[data-route]").forEach((link) => {
 
 window.addEventListener("hashchange", navigate);
 
-document.getElementById("menu-toggle")?.addEventListener("click", () => {
-  sidebar.classList.toggle("open");
+menuToggle?.addEventListener("click", () => {
+  setSidebarOpen(!sidebar?.classList.contains("open"));
+});
+
+sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false));
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && sidebar?.classList.contains("open")) {
+    setSidebarOpen(false);
+  }
 });
 
 document.getElementById("btn-config-api")?.addEventListener("click", () => {
