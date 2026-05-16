@@ -246,17 +246,21 @@ body.sidebar-open {
   display: none;
   flex-shrink: 0;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   padding: 0;
+  box-sizing: border-box;
 }
 
 .menu-toggle-bar {
   display: block;
-  width: 1rem;
+  width: 1.125rem;
   height: 2px;
+  margin: 0;
   background: currentColor;
   border-radius: 1px;
+  flex-shrink: 0;
 }
 
 .btn {
@@ -688,16 +692,14 @@ tr:hover td {
 
   .menu-toggle {
     display: inline-flex;
+    order: 0;
+    align-self: center;
   }
 
   .page-title {
     font-size: 1.05rem;
     flex: 1 1 calc(100% - 3rem);
     order: 1;
-  }
-
-  .menu-toggle {
-    order: 0;
   }
 
   .topbar-actions {
