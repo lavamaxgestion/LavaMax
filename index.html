@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LavaMax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast" hidden role="status"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">LMax</span>
+        <div>
+          <strong>LavaMax</strong>
+          <small>Gestion de alquiler</small>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Principal">
+        <a href="#/" class="nav-link" data-route="/">
+          <span class="nav-icon">#</span> Ordenes
+        </a>
+        <a href="#/nueva" class="nav-link" data-route="/nueva">
+          <span class="nav-icon">+</span> Nueva solicitud
+        </a>
+      </nav>
+
+      <div class="nav-section">
+        <span class="nav-label">Administrador</span>
+        <nav class="nav" aria-label="Administracion">
+          <a href="#/admin/inventario" class="nav-link" data-route="/admin/inventario">
+            <span class="nav-icon">I</span> Inventario
+          </a>
+          <a href="#/admin/tarifas" class="nav-link" data-route="/admin/tarifas">
+            <span class="nav-icon">$</span> Tarifas
+          </a>
+          <a href="#/admin/usuarios" class="nav-link" data-route="/admin/usuarios">
+            <span class="nav-icon">U</span> Usuarios
+          </a>
+          <a href="#/admin/reportes" class="nav-link" data-route="/admin/reportes">
+            <span class="nav-icon">R</span> Reportes
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-config-api">API</button>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <header class="topbar">
+        <button type="button" class="btn-icon menu-toggle" id="menu-toggle" aria-label="Menu">=</button>
+        <h1 class="page-title" id="page-title">Ordenes de solicitud</h1>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </header>
+      <section class="content" id="content" aria-live="polite"></section>
+      <div id="boot-error" class="boot-error" hidden></div>
+    </main>
+  </div>
+
+  <dialog id="dialog-api" class="dialog">
+    <form method="dialog" id="form-api">
+      <header class="dialog-header">
+        <h2>Conexion con Google Sheets</h2>
+        <button type="button" class="btn-icon dialog-close" data-close>x</button>
+      </header>
+      <p class="hint">
+        Pega la URL de tu Web App de Google Apps Script (despliegue, acceso: cualquiera).
+        Ver README.md para configurar la hoja.
+      </p>
+      <label class="field">
+        <span>URL del API</span>
+        <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/.../exec" required />
+      </label>
+      <label class="field">
+        <span>Clave admin (opcional)</span>
+        <input type="password" id="admin-key" placeholder="Para operaciones de administrador" autocomplete="off" />
+      </label>
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      var el = document.getElementById("boot-error");
+      function showBootError(html) {
+        if (!el) return;
+        el.hidden = false;
+        el.innerHTML = html;
+      }
+      if (location.protocol === "file:") {
+        showBootError(
+          "<strong>Abre la app con un servidor local</strong>" +
+            "<p>Los modulos JavaScript no funcionan con <code>file://</code>. " +
+            "La URL cambia al hacer clic, pero las vistas no se cargan.</p>" +
+            "<p>Ejecuta en la carpeta del proyecto:</p>" +
+            "<pre>npx serve .\n# o: python3 -m http.server 8080</pre>" +
+            "<p>Luego abre <code>http://localhost:8080</code></p>"
+        );
+        return;
+      }
+      window.addEventListener("error", function (e) {
+        if (e.filename && String(e.filename).indexOf("/js/") !== -1) {
+          showBootError(
+            "<strong>Error al cargar la aplicacion</strong>" +
+              "<p>" + (e.message || "Revisa la consola del navegador (F12).") + "</p>" +
+              "<p>Asegurate de servir el proyecto con un servidor HTTP, no abriendo el archivo HTML directamente.</p>"
+          );
+        }
+      });
+      setTimeout(function () {
+        var content = document.getElementById("content");
+        if (content && !content.innerHTML.trim()) {
+          showBootError(
+            "<strong>La aplicacion no inicio</strong>" +
+              "<p>Comprueba la consola del navegador (F12) y que <code>js/app.js</code> cargue correctamente.</p>"
+          );
+        }
+      }, 2500);
+    })();
+  </script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
