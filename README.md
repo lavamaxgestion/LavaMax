@@ -1,4 +1,4 @@
-# LavaRent - Gestion de alquiler de lavadoras
+# LavaMAX - Gestion de alquiler de lavadoras
 
 Aplicacion web para gestionar solicitudes de alquiler de lavadoras, con despliegue en **GitHub Pages** y base de datos en **Google Sheets** (via Google Apps Script).
 
