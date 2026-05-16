@@ -163,6 +163,26 @@ body {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.mock-banner-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+.mock-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.2);
+  color: var(--warning);
+  border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
 .content {

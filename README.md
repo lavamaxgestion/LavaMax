@@ -98,6 +98,12 @@ Las ordenes se ordenan por **fecha + hora de entrega** ascendente: la entrega ma
 - Crear solicitudes es publico (para clientes desde tu sitio en Pages).
 - Para mayor seguridad, puedes restringir la Web App y usar un proxy; para uso interno pequeno, la clave admin es suficiente.
 
+## Modo prueba (sin Google Sheets)
+
+Si aun no configuras la URL del API, la app usa **datos locales** en `js/mock-data.js` (guardados en `localStorage` del navegador). Puedes probar ordenes, formularios, inventario y reportes. Al guardar la URL del API en **API**, pasa a usar Google Sheets.
+
+Para volver a los datos de ejemplo: boton **Restablecer** en la barra superior (modo prueba).
+
 ## Estructura del proyecto
 
 ```
@@ -107,6 +113,7 @@ gestion-lavadoras/
   js/
     app.js
     api.js
+    mock-data.js
     views/
       ordenes.js
       nueva-solicitud.js

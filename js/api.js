@@ -1,8 +1,15 @@
+import { mockRequest } from "./mock-data.js";
+
 const STORAGE_KEY = "lavarent_api_url";
 const ADMIN_KEY = "lavarent_admin_key";
 
 export function getApiUrl() {
   return localStorage.getItem(STORAGE_KEY) || "";
+}
+
+/** true cuando no hay URL de Google Sheets y se usan datos locales */
+export function isMockMode() {
+  return !getApiUrl();
 }
 
 export function setApiConfig(url, adminKey) {
@@ -35,6 +42,14 @@ function buildUrl(params = {}) {
 const REQUEST_TIMEOUT_MS = 20000;
 
 async function request(method, params = {}, body = null) {
+  if (isMockMode()) {
+    const data = await mockRequest(method, params, body);
+    if (!data.ok) {
+      throw new Error(data.error || "Error en datos de prueba");
+    }
+    return data;
+  }
+
   const url = buildUrl({ ...params, _method: method });
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

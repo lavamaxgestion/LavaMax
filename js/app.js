@@ -1,4 +1,5 @@
-import { getApiUrl, setApiConfig } from "./api.js";
+import { getApiUrl, setApiConfig, isMockMode } from "./api.js";
+import { resetMockData } from "./mock-data.js";
 import { renderOrdenes } from "./views/ordenes.js";
 import { renderNuevaSolicitud } from "./views/nueva-solicitud.js";
 import {
@@ -74,6 +75,7 @@ async function navigate() {
   } finally {
     if (token === navToken) {
       sidebar.classList.remove("open");
+      showMockBanner();
     }
   }
 }
@@ -127,10 +129,32 @@ document.getElementById("form-api")?.addEventListener("submit", (e) => {
   navigate();
 });
 
+function showMockBanner() {
+  document.getElementById("mock-badge-wrap")?.remove();
+  if (!isMockMode() || !topbarActions) return;
+
+  const wrap = document.createElement("div");
+  wrap.id = "mock-badge-wrap";
+  wrap.className = "mock-banner-wrap";
+  wrap.innerHTML = `
+    <span class="mock-badge" title="Datos en localStorage del navegador">Modo prueba</span>
+    <button type="button" class="btn btn-ghost btn-sm" id="btn-reset-mock">Restablecer</button>
+  `;
+  topbarActions.prepend(wrap);
+  document.getElementById("btn-reset-mock")?.addEventListener("click", () => {
+    if (!confirm("Restablecer inventario, tarifas, usuarios y solicitudes de ejemplo?")) return;
+    resetMockData();
+    window.showToast("Datos de prueba restablecidos", "success");
+    navigate();
+  });
+}
+
 if (!getApiUrl()) {
   setTimeout(() => {
-    window.showToast("Configura la URL del API para conectar Google Sheets", "");
-    dialogApi.showModal();
+    window.showToast(
+      "Modo prueba: datos locales. Configura API cuando tengas Google Sheets.",
+      ""
+    );
   }, 600);
 }
 
