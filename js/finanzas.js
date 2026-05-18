@@ -1,21 +1,28 @@
 import { normalizeSolicitudAlquiler } from "./alquiler.js";
 
 export const ESTADOS_PAGO = [
-  "pendiente de pago",
+  "pago pendiente",
   "pago efectivo",
   "pago transferencia",
   "pago parcial",
 ];
 
-export const ESTADO_PAGO_DEFAULT = "pendiente de pago";
+export const ESTADO_PAGO_DEFAULT = "pago pendiente";
+
+const ESTADO_PAGO_LEGACY = "pendiente de pago";
+
+export function normalizarEstadoPago(estadoPago) {
+  if (!estadoPago || estadoPago === ESTADO_PAGO_LEGACY) return ESTADO_PAGO_DEFAULT;
+  return estadoPago;
+}
 
 export function pagoBadgeClass(estadoPago) {
-  return `badge-${(estadoPago || ESTADO_PAGO_DEFAULT).replace(/\s+/g, "-")}`;
+  return `badge-${normalizarEstadoPago(estadoPago).replace(/\s+/g, "-")}`;
 }
 
 export function montoCobrado(solicitud) {
   const total = Number(solicitud.total) || 0;
-  const ep = solicitud.estado_pago || ESTADO_PAGO_DEFAULT;
+  const ep = normalizarEstadoPago(solicitud.estado_pago);
 
   if (ep === "pago efectivo" || ep === "pago transferencia") return total;
   if (ep === "pago parcial") {
@@ -55,7 +62,7 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
       return;
     }
 
-    const ep = r.estado_pago || ESTADO_PAGO_DEFAULT;
+    const ep = normalizarEstadoPago(r.estado_pago);
     const cobrado = montoCobrado(r);
     const saldo = saldoPendiente(r);
 
@@ -85,7 +92,7 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
 
 export function normalizeSolicitudPago(solicitud) {
   normalizeSolicitudAlquiler(solicitud);
-  if (!solicitud.estado_pago) solicitud.estado_pago = ESTADO_PAGO_DEFAULT;
+  solicitud.estado_pago = normalizarEstadoPago(solicitud.estado_pago);
   if (solicitud.monto_pagado === undefined || solicitud.monto_pagado === null) {
     solicitud.monto_pagado = "";
   }

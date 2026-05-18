@@ -413,7 +413,7 @@ tr:hover td {
   color: var(--danger);
 }
 
-.badge-pendiente-de-pago {
+.badge-pago-pendiente {
   background: rgba(251, 191, 36, 0.15);
   color: var(--warning);
 }
@@ -598,6 +598,16 @@ tr:hover td {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin: 0.65rem 0;
+}
+
+#pagos-list [class*="badge-pago"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2;
+  min-height: 1.65rem;
+  padding: 0.25rem 0.65rem;
 }
 
 .pagos-card-money {

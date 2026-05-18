@@ -160,7 +160,7 @@ function appendRow(sheetName, data) {
     row.estado = "pendiente";
   }
   if (sheetName === SHEETS.solicitudes && !row.estado_pago) {
-    row.estado_pago = "pendiente de pago";
+    row.estado_pago = "pago pendiente";
   }
   if (sheetName === SHEETS.solicitudes && row.monto_pagado === undefined) {
     row.monto_pagado = "";
@@ -219,7 +219,7 @@ function deleteRow(sheetName, id) {
 
 function montoCobrado(r) {
   var total = Number(r.total) || 0;
-  var ep = r.estado_pago || "pendiente de pago";
+  var ep = r.estado_pago || "pago pendiente";
   if (ep === "pago efectivo" || ep === "pago transferencia") return total;
   if (ep === "pago parcial") {
     var pagado = Number(r.monto_pagado) || 0;
@@ -259,11 +259,11 @@ function buildReport(desde, hasta) {
       return;
     }
 
-    var ep = r.estado_pago || "pendiente de pago";
+    var ep = r.estado_pago || "pago pendiente";
     ingresos_cobrados += montoCobrado(r);
     por_cobrar += saldoPendiente(r);
 
-    if (ep === "pendiente de pago") pendientes_pago++;
+    if (ep === "pago pendiente") pendientes_pago++;
     if (ep === "pago efectivo") pagos_efectivo++;
     if (ep === "pago transferencia") pagos_transferencia++;
     if (ep === "pago parcial") pagos_parciales++;
