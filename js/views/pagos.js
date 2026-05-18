@@ -14,7 +14,14 @@ import {
   pagoBadgeClass,
   normalizeSolicitudPago,
 } from "../finanzas.js";
-import { isOrdenEnRuta } from "../estados.js";
+import { ESTADOS_GESTION, isOrdenEnRuta } from "../estados.js";
+
+const ESTADOS_GESTION_EN_RUTA = ESTADOS_GESTION.filter(
+  (e) => e !== "pendiente" && e !== "cancelada"
+);
+
+let pagoDialogBound = false;
+let modalContext = null;
 
 export async function renderPagos(container) {
   container.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando pagos...</div>`;
@@ -38,6 +45,8 @@ export async function renderPagos(container) {
 }
 
 function renderPagosList(container, items) {
+  setupPagoDialog();
+
   const cobradoTotal = items.reduce((s, i) => s + montoCobrado(i), 0);
   const porCobrar = items.reduce((s, i) => s + saldoPendiente(i), 0);
   const pendientes = items.filter(
@@ -46,7 +55,7 @@ function renderPagosList(container, items) {
   const listosRecoger = items.filter((i) => isRecogidaVencida(i)).length;
 
   container.innerHTML = `
-    <div class="stats-grid">
+    <div class="stats-grid pagos-stats">
       <div class="stat">
         <div class="stat-label">Por cobrar</div>
         <div class="stat-value" id="pagos-stat-por-cobrar">${formatMoney(porCobrar)}</div>
@@ -68,9 +77,18 @@ function renderPagosList(container, items) {
     <div class="card">
       <h2 style="margin:0 0 0.35rem">Cobros en recogida</h2>
       <p class="hint" style="margin:0 0 1rem">
-        Ordenado por fecha y hora de recogida (la mas proxima primero). El pago se registra al recoger la lavadora.
+        Ordenado por recogida (la mas proxima primero). Pulsa Actualizar para cambiar gestion y pago con confirmacion.
       </p>
       <div class="filters">
+        <label class="field">
+          <span>Gestion</span>
+          <select id="filter-gestion">
+            <option value="">Todas en ruta</option>
+            ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada")
+              .map((e) => `<option value="${e}">${e}</option>`)
+              .join("")}
+          </select>
+        </label>
         <label class="field">
           <span>Estado de pago</span>
           <select id="filter-pago">
@@ -88,6 +106,7 @@ function renderPagosList(container, items) {
   `;
 
   const listEl = document.getElementById("pagos-list");
+  const filterGestion = document.getElementById("filter-gestion");
   const filterPago = document.getElementById("filter-pago");
   const filterBuscar = document.getElementById("filter-pago-buscar");
 
@@ -104,11 +123,44 @@ function renderPagosList(container, items) {
     document.getElementById("pagos-stat-recoger").textContent = String(recoger);
   }
 
+  function renderItemSummary(item) {
+    const cobrado = montoCobrado(item);
+    const saldo = saldoPendiente(item);
+    const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
+    const eg = item.estado || "pendiente";
+    const vencida = isRecogidaVencida(item);
+
+    return {
+      cobrado,
+      saldo,
+      ep,
+      eg,
+      vencida,
+      html: `
+        <strong>${escapeHtml(item.cliente_nombre)}</strong>
+        <div class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</div>
+        <div class="pagos-sub">${escapeHtml(item.lavadora_codigo || "-")} · ${formatDuracionAlquiler(item)}</div>
+      `,
+      badges: `
+        <span class="badge badge-${eg}">${escapeHtml(eg)}</span>
+        <span class="badge ${pagoBadgeClass(ep)}">${escapeHtml(ep)}</span>
+        ${vencida ? '<span class="badge badge-urgente">Recoger ya</span>' : ""}
+      `,
+      money: `
+        <div class="pagos-money-row"><span>Total</span><strong>${formatMoney(item.total)}</strong></div>
+        <div class="pagos-money-row"><span>Cobrado</span><span>${formatMoney(cobrado)}</span></div>
+        <div class="pagos-money-row ${saldo > 0 ? "pagos-saldo-pendiente" : ""}"><span>Saldo</span><strong>${formatMoney(saldo)}</strong></div>
+      `,
+    };
+  }
+
   function paint() {
     let filtered = sortByRecogida([...items], { descendente: false });
+    const eg = filterGestion.value;
     const ep = filterPago.value;
     const q = filterBuscar.value.trim().toLowerCase();
 
+    if (eg) filtered = filtered.filter((i) => i.estado === eg);
     if (ep) filtered = filtered.filter((i) => (i.estado_pago || ESTADO_PAGO_DEFAULT) === ep);
     if (q) {
       filtered = filtered.filter(
@@ -125,7 +177,56 @@ function renderPagosList(container, items) {
       return;
     }
 
+    const cardsHtml = filtered
+      .map((item) => {
+        const s = renderItemSummary(item);
+        return `
+        <article class="pagos-card ${s.vencida ? "pagos-card-listo" : ""}" data-id="${item.id}">
+          <header class="pagos-card-header">
+            <div>
+              <div class="pagos-card-recogida">${formatFechaHoraRecogida(item)}</div>
+              ${s.html}
+            </div>
+          </header>
+          <div class="pagos-card-badges">${s.badges}</div>
+          <div class="pagos-card-money">${s.money}</div>
+          <footer class="pagos-card-footer">
+            <button type="button" class="btn btn-primary btn-sm btn-actualizar-pago" data-id="${item.id}">
+              Actualizar estados
+            </button>
+          </footer>
+        </article>`;
+      })
+      .join("");
+
+    const tableHtml = filtered
+      .map((item) => {
+        const s = renderItemSummary(item);
+        return `
+        <tr data-id="${item.id}" class="${s.vencida ? "pagos-row-listo" : ""}">
+          <td data-label="Recogida">
+            <strong>${formatFechaHoraRecogida(item)}</strong>
+            ${s.vencida ? '<span class="badge badge-urgente">Recoger ya</span>' : ""}
+          </td>
+          <td data-label="Cliente">${s.html}</td>
+          <td data-label="Lavadora">${escapeHtml(item.lavadora_codigo || "-")}</td>
+          <td data-label="Alquiler">${formatDuracionAlquiler(item)}</td>
+          <td data-label="Total">${formatMoney(item.total)}</td>
+          <td data-label="Cobrado">${formatMoney(s.cobrado)}</td>
+          <td data-label="Saldo" class="${s.saldo > 0 ? "pagos-saldo-pendiente" : ""}">${formatMoney(s.saldo)}</td>
+          <td data-label="Gestion"><span class="badge badge-${s.eg}">${escapeHtml(s.eg)}</span></td>
+          <td data-label="Pago"><span class="badge ${pagoBadgeClass(s.ep)}">${escapeHtml(s.ep)}</span></td>
+          <td data-label="Accion" class="pagos-col-accion">
+            <button type="button" class="btn btn-primary btn-sm btn-actualizar-pago" data-id="${item.id}">
+              Actualizar
+            </button>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
     listEl.innerHTML = `
+      <div class="pagos-cards">${cardsHtml}</div>
       <div class="table-wrap pagos-table-wrap">
         <table class="pagos-table">
           <thead>
@@ -137,113 +238,209 @@ function renderPagosList(container, items) {
               <th>Total</th>
               <th>Cobrado</th>
               <th>Saldo</th>
-              <th>Estado pago</th>
+              <th>Gestion</th>
+              <th>Pago</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody>
-            ${filtered
-              .map((item) => {
-                const cobrado = montoCobrado(item);
-                const saldo = saldoPendiente(item);
-                const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
-                const esParcial = ep === "pago parcial";
-                const vencida = isRecogidaVencida(item);
-                return `
-                <tr data-id="${item.id}" class="${vencida ? "pagos-row-listo" : ""}">
-                  <td>
-                    <strong>${formatFechaHoraRecogida(item)}</strong>
-                    ${vencida ? '<span class="badge badge-urgente">Recoger ya</span>' : ""}
-                  </td>
-                  <td>
-                    <strong>${escapeHtml(item.cliente_nombre)}</strong>
-                    <div class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</div>
-                  </td>
-                  <td>${escapeHtml(item.lavadora_codigo || "-")}</td>
-                  <td>${formatDuracionAlquiler(item)}</td>
-                  <td>${formatMoney(item.total)}</td>
-                  <td>${formatMoney(cobrado)}</td>
-                  <td class="${saldo > 0 ? "pagos-saldo-pendiente" : ""}">${formatMoney(saldo)}</td>
-                  <td class="pagos-actions-cell">
-                    <span class="badge ${pagoBadgeClass(ep)}">${escapeHtml(ep)}</span>
-                    <select class="estado-pago-select" data-id="${item.id}" aria-label="Estado de pago">
-                      ${ESTADOS_PAGO.map(
-                        (e) =>
-                          `<option value="${e}" ${e === ep ? "selected" : ""}>${e}</option>`
-                      ).join("")}
-                    </select>
-                    <label class="pagos-monto-field ${esParcial ? "" : "hidden"}">
-                      <span>Monto pagado</span>
-                      <input
-                        type="number"
-                        class="monto-pagado-input"
-                        data-id="${item.id}"
-                        min="0"
-                        max="${Number(item.total) || 0}"
-                        step="1000"
-                        value="${item.monto_pagado !== "" ? item.monto_pagado : ""}"
-                        placeholder="0"
-                      />
-                    </label>
-                  </td>
-                </tr>`;
-              })
-              .join("")}
-          </tbody>
+          <tbody>${tableHtml}</tbody>
         </table>
       </div>
     `;
 
     updateStats();
 
-    listEl.querySelectorAll(".estado-pago-select").forEach((sel) => {
-      sel.addEventListener("change", async (e) => {
-        const id = e.target.dataset.id;
-        const item = items.find((i) => i.id === id);
-        if (!item) return;
-
-        const nuevoEstado = e.target.value;
-        const payload = { estado_pago: nuevoEstado };
-
-        if (nuevoEstado === "pago parcial" && !item.monto_pagado) {
-          payload.monto_pagado = Math.round((Number(item.total) || 0) / 2);
-        } else if (nuevoEstado !== "pago parcial") {
-          payload.monto_pagado = "";
-        }
-
-        await guardarPago(id, payload, item);
-        paint();
-      });
-    });
-
-    listEl.querySelectorAll(".monto-pagado-input").forEach((inp) => {
-      inp.addEventListener("change", async (e) => {
-        const id = e.target.dataset.id;
-        const item = items.find((i) => i.id === id);
-        if (!item) return;
-        await guardarPago(
-          id,
-          { monto_pagado: e.target.value, estado_pago: "pago parcial" },
-          item
-        );
-        paint();
+    listEl.querySelectorAll(".btn-actualizar-pago").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const item = items.find((i) => i.id === btn.dataset.id);
+        if (item) openPagoDialog(item);
       });
     });
   }
 
-  async function guardarPago(id, payload, item) {
+  async function guardarSolicitud(id, payload, item, mensaje) {
     try {
       await api.updateSolicitud(id, payload);
       Object.assign(item, payload);
       normalizeSolicitudPago(item);
-      window.showToast?.("Pago actualizado", "success");
+      window.showToast?.(mensaje, "success");
+      return true;
     } catch (err) {
       window.showToast?.(err.message, "error");
+      return false;
     }
   }
 
+  function openPagoDialog(item) {
+    modalContext = {
+      item,
+      snapshot: {
+        estado: item.estado,
+        estado_pago: item.estado_pago || ESTADO_PAGO_DEFAULT,
+        monto_pagado: item.monto_pagado ?? "",
+      },
+      onSaved: (payload) => {
+        if (payload.estado === "recogida") {
+          const idx = items.findIndex((i) => i.id === item.id);
+          if (idx >= 0) items.splice(idx, 1);
+        }
+        paint();
+      },
+      guardar: guardarSolicitud,
+    };
+    fillPagoDialog(item);
+    document.getElementById("dialog-pago-update")?.showModal();
+  }
+
+  filterGestion.addEventListener("change", paint);
   filterPago.addEventListener("change", paint);
   filterBuscar.addEventListener("input", paint);
   paint();
+}
+
+function setupPagoDialog() {
+  if (pagoDialogBound) return;
+  pagoDialogBound = true;
+
+  const dialog = document.getElementById("dialog-pago-update");
+  const form = document.getElementById("form-pago-update");
+  const selGestion = document.getElementById("dialog-estado-gestion");
+  const selPago = document.getElementById("dialog-estado-pago");
+  const montoWrap = document.getElementById("dialog-monto-wrap");
+  const montoInput = document.getElementById("dialog-monto-pagado");
+  const cambiosEl = document.getElementById("dialog-pago-cambios");
+
+  if (!dialog || !form) return;
+
+  selGestion.innerHTML = ESTADOS_GESTION_EN_RUTA.map(
+    (e) => `<option value="${e}">${e}</option>`
+  ).join("");
+  selPago.innerHTML = ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("");
+
+  function closeDialog() {
+    dialog.close();
+    modalContext = null;
+  }
+
+  dialog.querySelectorAll("[data-close-pago]").forEach((btn) => {
+    btn.addEventListener("click", closeDialog);
+  });
+
+  function toggleMonto() {
+    const esParcial = selPago.value === "pago parcial";
+    montoWrap.classList.toggle("hidden", !esParcial);
+    if (esParcial && !montoInput.value && modalContext?.item) {
+      const total = Number(modalContext.item.total) || 0;
+      const prev = Number(modalContext.snapshot.monto_pagado) || 0;
+      montoInput.value = prev || Math.round(total / 2);
+    }
+    updateCambiosPreview();
+  }
+
+  function updateCambiosPreview() {
+    if (!modalContext) return;
+    const { snapshot } = modalContext;
+    const lines = [];
+    if (selGestion.value !== snapshot.estado) {
+      lines.push(`Gestion: ${snapshot.estado} → ${selGestion.value}`);
+    }
+    if (selPago.value !== snapshot.estado_pago) {
+      lines.push(`Pago: ${snapshot.estado_pago} → ${selPago.value}`);
+    }
+    if (selPago.value === "pago parcial") {
+      lines.push(`Monto pagado: ${formatMoney(montoInput.value || 0)}`);
+    }
+    if (lines.length) {
+      cambiosEl.hidden = false;
+      cambiosEl.textContent = lines.join(" · ");
+    } else {
+      cambiosEl.hidden = true;
+      cambiosEl.textContent = "";
+    }
+  }
+
+  selPago.addEventListener("change", toggleMonto);
+  selGestion.addEventListener("change", updateCambiosPreview);
+  montoInput.addEventListener("input", updateCambiosPreview);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!modalContext) return;
+
+    const { item, snapshot, onSaved, guardar } = modalContext;
+    const nuevoGestion = selGestion.value;
+    const nuevoPago = selPago.value;
+    const payload = {};
+
+    if (nuevoGestion !== snapshot.estado) payload.estado = nuevoGestion;
+    if (nuevoPago !== snapshot.estado_pago) payload.estado_pago = nuevoPago;
+
+    if (nuevoPago === "pago parcial") {
+      const monto = Number(montoInput.value);
+      if (!monto || monto < 0) {
+        window.showToast?.("Indica el monto pagado", "error");
+        return;
+      }
+      payload.monto_pagado = monto;
+    } else if (nuevoPago !== snapshot.estado_pago || snapshot.estado_pago === "pago parcial") {
+      payload.monto_pagado = "";
+    }
+
+    if (!Object.keys(payload).length) {
+      window.showToast?.("No hay cambios que guardar", "");
+      closeDialog();
+      return;
+    }
+
+    let msg = "¿Confirmar los cambios en esta orden?";
+    if (payload.estado === "recogida") {
+      msg =
+        "¿Confirmar que la lavadora fue recogida? La orden saldra de la lista de cobros en ruta.";
+    } else if (
+      payload.estado_pago &&
+      payload.estado_pago !== ESTADO_PAGO_DEFAULT &&
+      payload.estado_pago !== "pago parcial"
+    ) {
+      msg = `¿Confirmar registro de pago: ${payload.estado_pago}?`;
+    }
+
+    if (!confirm(msg)) return;
+
+    const ok = await guardar(item.id, payload, item, "Cambios guardados");
+    if (!ok) return;
+
+    closeDialog();
+    onSaved(payload);
+  });
+}
+
+function fillPagoDialog(item) {
+  const resumen = document.getElementById("dialog-pago-resumen");
+  const selGestion = document.getElementById("dialog-estado-gestion");
+  const selPago = document.getElementById("dialog-estado-pago");
+  const montoWrap = document.getElementById("dialog-monto-wrap");
+  const montoInput = document.getElementById("dialog-monto-pagado");
+  const cambiosEl = document.getElementById("dialog-pago-cambios");
+
+  const eg = item.estado || "pendiente";
+  const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
+  const saldo = saldoPendiente(item);
+
+  resumen.innerHTML = `
+    <p><strong>${escapeHtml(item.cliente_nombre)}</strong></p>
+    <p class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</p>
+    <p>Recogida: <strong>${formatFechaHoraRecogida(item)}</strong></p>
+    <p>Lavadora: ${escapeHtml(item.lavadora_codigo || "-")} · ${formatDuracionAlquiler(item)}</p>
+    <p>Total ${formatMoney(item.total)} · Saldo ${formatMoney(saldo)}</p>
+  `;
+
+  selGestion.value = eg;
+  selPago.value = ep;
+  montoInput.value = item.monto_pagado !== "" && item.monto_pagado != null ? item.monto_pagado : "";
+  montoInput.max = Number(item.total) || 0;
+  montoWrap.classList.toggle("hidden", ep !== "pago parcial");
+  cambiosEl.hidden = true;
+  cambiosEl.textContent = "";
 }
 
 function escapeHtml(s) {

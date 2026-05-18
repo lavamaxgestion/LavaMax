@@ -99,6 +99,33 @@
     </form>
   </dialog>
 
+  <dialog id="dialog-pago-update" class="dialog dialog-pago">
+    <form id="form-pago-update">
+      <header class="dialog-header">
+        <h2>Confirmar actualizacion</h2>
+        <button type="button" class="btn-icon dialog-close" data-close-pago aria-label="Cerrar">x</button>
+      </header>
+      <div id="dialog-pago-resumen" class="pagos-dialog-resumen"></div>
+      <label class="field">
+        <span>Gestion</span>
+        <select id="dialog-estado-gestion"></select>
+      </label>
+      <label class="field">
+        <span>Estado de pago</span>
+        <select id="dialog-estado-pago"></select>
+      </label>
+      <label class="field pagos-monto-field hidden" id="dialog-monto-wrap">
+        <span>Monto pagado</span>
+        <input type="number" id="dialog-monto-pagado" min="0" step="1000" placeholder="0" />
+      </label>
+      <p class="hint pagos-dialog-cambios" id="dialog-pago-cambios" hidden></p>
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" data-close-pago>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="dialog-pago-confirmar">Confirmar cambios</button>
+      </footer>
+    </form>
+  </dialog>
+
   <script>
     (function () {
       var el = document.getElementById("boot-error");

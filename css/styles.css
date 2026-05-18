@@ -534,33 +534,12 @@ tr:hover td {
 .pagos-sub {
   font-size: 0.8rem;
   color: var(--muted);
+  margin-top: 0.15rem;
 }
 
 .pagos-saldo-pendiente {
   color: var(--warning);
   font-weight: 600;
-}
-
-.pagos-actions-cell {
-  min-width: 200px;
-}
-
-.pagos-actions-cell .badge {
-  display: block;
-  margin-bottom: 0.35rem;
-  width: fit-content;
-}
-
-.estado-pago-select {
-  width: 100%;
-  min-height: 2.5rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.45rem 0.55rem;
-  color: var(--text);
-  font: inherit;
-  margin-bottom: 0.35rem;
 }
 
 .pagos-monto-field {
@@ -578,7 +557,8 @@ tr:hover td {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.45rem 0.55rem;
+  padding: 0.65rem 0.75rem;
+  min-height: 2.75rem;
   color: var(--text);
   font: inherit;
   width: 100%;
@@ -586,6 +566,70 @@ tr:hover td {
 
 .pagos-monto-field.hidden {
   display: none;
+}
+
+/* Tarjetas (movil) */
+.pagos-cards {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pagos-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--bg);
+}
+
+.pagos-card-listo {
+  border-left: 4px solid var(--warning);
+}
+
+.pagos-card-recogida {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.pagos-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+}
+
+.pagos-card-money {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+.pagos-money-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.pagos-money-row strong {
+  color: var(--text);
+}
+
+.pagos-card-footer .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Tabla (escritorio) */
+.pagos-table-wrap {
+  display: block;
 }
 
 .pagos-row-listo td:first-child {
@@ -596,13 +640,80 @@ tr:hover td {
   display: block;
 }
 
+.pagos-col-accion {
+  min-width: 7.5rem;
+  white-space: nowrap;
+}
+
+.pagos-col-accion .btn {
+  width: 100%;
+}
+
+/* Modal pagos */
+.dialog-pago {
+  max-width: 420px;
+}
+
+.pagos-dialog-resumen {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pagos-dialog-resumen p {
+  margin: 0.25rem 0;
+}
+
+.pagos-dialog-cambios {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+  padding: 0.65rem 0.75rem;
+  background: rgba(59, 158, 255, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 158, 255, 0.2);
+  color: var(--text);
+}
+
+.pagos-stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
 @media (max-width: 768px) {
-  .pagos-table-wrap {
-    margin: 0 -0.25rem;
+  .pagos-cards {
+    display: flex;
   }
 
-  .pagos-actions-cell {
-    min-width: 140px;
+  .pagos-table-wrap {
+    display: none;
+  }
+
+  .pagos-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pagos-stats .stat:nth-child(3),
+  .pagos-stats .stat:nth-child(4) {
+    grid-column: span 1;
+  }
+
+  .dialog-pago {
+    width: calc(100% - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .dialog-pago form .field select,
+  .dialog-pago form .field input {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 769px) {
+  .pagos-table .btn-actualizar-pago {
+    min-width: 6.5rem;
   }
 }
 
