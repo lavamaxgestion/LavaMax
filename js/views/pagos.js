@@ -58,11 +58,11 @@ function renderPagosList(container, items) {
     <div class="stats-grid pagos-stats">
       <div class="stat">
         <div class="stat-label">Por cobrar</div>
-        <div class="stat-value" id="pagos-stat-por-cobrar">${formatMoney(porCobrar)}</div>
+        <div class="stat-value stat-value-por-cobrar" id="pagos-stat-por-cobrar">${formatMoney(porCobrar)}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Cobrado (en ruta)</div>
-        <div class="stat-value" id="pagos-stat-cobrado">${formatMoney(cobradoTotal)}</div>
+        <div class="stat-value stat-value-ingresos" id="pagos-stat-cobrado">${formatMoney(cobradoTotal)}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Pendientes de pago</div>

@@ -130,8 +130,8 @@ export async function renderReportes(container) {
       const r = data || {};
       el.innerHTML = `
         <div class="stats-grid" style="margin-top:1rem">
-          <div class="stat"><div class="stat-label">Ingresos cobrados</div><div class="stat-value">${formatMoney(r.ingresos_cobrados ?? r.ingresos)}</div></div>
-          <div class="stat"><div class="stat-label">Por cobrar</div><div class="stat-value">${formatMoney(r.por_cobrar ?? 0)}</div></div>
+          <div class="stat"><div class="stat-label">Ingresos cobrados</div><div class="stat-value stat-value-ingresos">${formatMoney(r.ingresos_cobrados ?? r.ingresos)}</div></div>
+          <div class="stat"><div class="stat-label">Por cobrar</div><div class="stat-value stat-value-por-cobrar">${formatMoney(r.por_cobrar ?? 0)}</div></div>
           <div class="stat"><div class="stat-label">Pend. de pago</div><div class="stat-value">${r.pendientes_pago ?? 0}</div></div>
           <div class="stat"><div class="stat-label">Efectivo</div><div class="stat-value">${r.pagos_efectivo ?? 0}</div></div>
           <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${r.pagos_transferencia ?? 0}</div></div>

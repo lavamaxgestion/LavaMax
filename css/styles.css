@@ -351,6 +351,14 @@ body.sidebar-open {
   margin-top: 0.25rem;
 }
 
+.stat-value-ingresos {
+  color: var(--success);
+}
+
+.stat-value-por-cobrar {
+  color: var(--danger);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
