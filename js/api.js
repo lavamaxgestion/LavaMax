@@ -131,6 +131,8 @@ export function sortByEntrega(items) {
   });
 }
 
+export { sortByRecogida, formatFechaHoraRecogida, formatDuracionAlquiler, isRecogidaVencida } from "./alquiler.js";
+
 export function isUrgent(item) {
   const entrega = new Date(
     item.fecha_entrega + "T" + (item.hora_entrega || "23:59")
@@ -150,8 +152,10 @@ export function formatDate(iso) {
 }
 
 export function formatMoney(n) {
-  return new Intl.NumberFormat("es", {
+  return new Intl.NumberFormat("es-CO", {
     style: "currency",
-    currency: "USD",
+    currency: "COP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(Number(n) || 0);
 }

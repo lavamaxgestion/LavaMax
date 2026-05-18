@@ -109,13 +109,16 @@ function initHeaders(name, sh) {
       "lavadora_id",
       "lavadora_codigo",
       "dias_alquiler",
+      "horas_alquiler",
       "tarifa_id",
       "total",
       "estado",
+      "estado_pago",
+      "monto_pagado",
       "notas",
     ],
     Inventario: ["id", "codigo", "modelo", "capacidad_kg", "estado"],
-    Tarifas: ["id", "nombre", "precio_dia", "descripcion"],
+    Tarifas: ["id", "nombre", "precio_dia", "horas_duracion", "descripcion"],
     Usuarios: ["id", "nombre", "email", "rol", "activo"],
   };
   const row = headers[name];
@@ -155,6 +158,12 @@ function appendRow(sheetName, data) {
   }
   if (sheetName === SHEETS.solicitudes && !row.estado) {
     row.estado = "pendiente";
+  }
+  if (sheetName === SHEETS.solicitudes && !row.estado_pago) {
+    row.estado_pago = "pendiente de pago";
+  }
+  if (sheetName === SHEETS.solicitudes && row.monto_pagado === undefined) {
+    row.monto_pagado = "";
   }
   const arr = headers.map(function (h) {
     return row[h];
@@ -208,6 +217,22 @@ function deleteRow(sheetName, id) {
   throw new Error("Registro no encontrado");
 }
 
+function montoCobrado(r) {
+  var total = Number(r.total) || 0;
+  var ep = r.estado_pago || "pendiente de pago";
+  if (ep === "pago efectivo" || ep === "pago transferencia") return total;
+  if (ep === "pago parcial") {
+    var pagado = Number(r.monto_pagado) || 0;
+    return Math.min(Math.max(0, pagado), total);
+  }
+  return 0;
+}
+
+function saldoPendiente(r) {
+  var total = Number(r.total) || 0;
+  return Math.max(0, total - montoCobrado(r));
+}
+
 function buildReport(desde, hasta) {
   const rows = listRows(SHEETS.solicitudes);
   const d0 = desde ? new Date(desde + "T00:00:00") : new Date(0);
@@ -218,23 +243,43 @@ function buildReport(desde, hasta) {
     return fe >= d0 && fe <= d1;
   });
 
-  var ingresos = 0;
+  var ingresos_cobrados = 0;
+  var por_cobrar = 0;
   var entregadas = 0;
   var canceladas = 0;
+  var pendientes_pago = 0;
+  var pagos_efectivo = 0;
+  var pagos_transferencia = 0;
+  var pagos_parciales = 0;
 
   filtered.forEach(function (r) {
-    if (r.estado === "entregada") {
-      ingresos += Number(r.total) || 0;
-      entregadas++;
+    if (r.estado === "entregada") entregadas++;
+    if (r.estado === "cancelada") {
+      canceladas++;
+      return;
     }
-    if (r.estado === "cancelada") canceladas++;
+
+    var ep = r.estado_pago || "pendiente de pago";
+    ingresos_cobrados += montoCobrado(r);
+    por_cobrar += saldoPendiente(r);
+
+    if (ep === "pendiente de pago") pendientes_pago++;
+    if (ep === "pago efectivo") pagos_efectivo++;
+    if (ep === "pago transferencia") pagos_transferencia++;
+    if (ep === "pago parcial") pagos_parciales++;
   });
 
   return {
-    ingresos: ingresos,
+    ingresos_cobrados: ingresos_cobrados,
+    por_cobrar: por_cobrar,
+    ingresos: ingresos_cobrados,
     total_solicitudes: filtered.length,
     entregadas: entregadas,
     canceladas: canceladas,
+    pendientes_pago: pendientes_pago,
+    pagos_efectivo: pagos_efectivo,
+    pagos_transferencia: pagos_transferencia,
+    pagos_parciales: pagos_parciales,
     detalle: filtered,
   };
 }

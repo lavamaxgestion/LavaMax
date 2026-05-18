@@ -2,6 +2,7 @@ import { getApiUrl, setApiConfig, isMockMode } from "./api.js";
 import { resetMockData } from "./mock-data.js";
 import { renderOrdenes } from "./views/ordenes.js";
 import { renderNuevaSolicitud } from "./views/nueva-solicitud.js";
+import { renderPagos } from "./views/pagos.js";
 import {
   renderInventario,
   renderTarifas,
@@ -12,6 +13,7 @@ import {
 const ROUTES = {
   "/": { title: "Ordenes de solicitud", render: renderOrdenes },
   "/nueva": { title: "Nueva solicitud", render: renderNuevaSolicitud },
+  "/pagos": { title: "Estado de pagos", render: renderPagos },
   "/admin/inventario": { title: "Inventario", render: (c) => renderInventario(c) },
   "/admin/tarifas": { title: "Tarifas", render: (c) => renderTarifas(c) },
   "/admin/usuarios": { title: "Usuarios", render: (c) => renderUsuarios(c) },

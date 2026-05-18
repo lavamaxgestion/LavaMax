@@ -1,4 +1,10 @@
 import { api, formatMoney } from "../api.js";
+import {
+  ESTADO_PAGO_DEFAULT,
+  montoCobrado,
+  saldoPendiente,
+  pagoBadgeClass,
+} from "../finanzas.js";
 
 function esc(s) {
   const d = document.createElement("div");
@@ -39,11 +45,17 @@ export async function renderTarifas(container) {
     const { data } = await api.getTarifas();
     renderCrudTable(container, {
       title: "Tarifas de alquiler",
-      columns: ["nombre", "precio_dia", "descripcion"],
+      columns: ["nombre", "horas_duracion", "precio_dia", "descripcion"],
       items: data || [],
       fields: [
         { name: "nombre", label: "Nombre", required: true },
-        { name: "precio_dia", label: "Precio por dia", type: "number", required: true },
+        {
+          name: "horas_duracion",
+          label: "Duracion (horas)",
+          type: "select",
+          options: ["12", "24"],
+        },
+        { name: "precio_dia", label: "Precio del periodo", type: "number", required: true },
         { name: "descripcion", label: "Descripcion" },
       ],
       onSave: (p) => api.saveTarifa(p),
@@ -118,24 +130,32 @@ export async function renderReportes(container) {
       const r = data || {};
       el.innerHTML = `
         <div class="stats-grid" style="margin-top:1rem">
-          <div class="stat"><div class="stat-label">Ingresos</div><div class="stat-value">${formatMoney(r.ingresos)}</div></div>
-          <div class="stat"><div class="stat-label">Solicitudes</div><div class="stat-value">${r.total_solicitudes ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Entregadas</div><div class="stat-value">${r.entregadas ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Canceladas</div><div class="stat-value">${r.canceladas ?? 0}</div></div>
+          <div class="stat"><div class="stat-label">Ingresos cobrados</div><div class="stat-value">${formatMoney(r.ingresos_cobrados ?? r.ingresos)}</div></div>
+          <div class="stat"><div class="stat-label">Por cobrar</div><div class="stat-value">${formatMoney(r.por_cobrar ?? 0)}</div></div>
+          <div class="stat"><div class="stat-label">Pend. de pago</div><div class="stat-value">${r.pendientes_pago ?? 0}</div></div>
+          <div class="stat"><div class="stat-label">Efectivo</div><div class="stat-value">${r.pagos_efectivo ?? 0}</div></div>
+          <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${r.pagos_transferencia ?? 0}</div></div>
+          <div class="stat"><div class="stat-label">Parciales</div><div class="stat-value">${r.pagos_parciales ?? 0}</div></div>
         </div>
         <div class="table-wrap" style="margin-top:1.5rem">
           <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Pago</th><th>Entrega</th></tr></thead>
             <tbody>
               ${(r.detalle || [])
-                .map(
-                  (row) => `<tr>
+                .map((row) => {
+                  const ep = row.estado_pago || ESTADO_PAGO_DEFAULT;
+                  const cobrado = montoCobrado(row);
+                  const saldo = saldoPendiente(row);
+                  return `<tr>
                     <td>${esc(row.fecha_entrega)}</td>
                     <td>${esc(row.cliente_nombre)}</td>
                     <td>${formatMoney(row.total)}</td>
+                    <td>${formatMoney(cobrado)}</td>
+                    <td>${formatMoney(saldo)}</td>
+                    <td><span class="badge ${pagoBadgeClass(ep)}">${esc(ep)}</span></td>
                     <td><span class="badge badge-${row.estado}">${esc(row.estado)}</span></td>
-                  </tr>`
-                )
+                  </tr>`;
+                })
                 .join("")}
             </tbody>
           </table>

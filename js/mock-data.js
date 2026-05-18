@@ -3,6 +3,12 @@
  * Se usa automaticamente cuando no hay URL del API de Google Sheets.
  */
 
+import {
+  ESTADO_PAGO_DEFAULT,
+  buildReporteFinanciero,
+  normalizeSolicitudPago,
+} from "./finanzas.js";
+
 const MOCK_STORAGE_KEY = "lavarent_mock_store";
 
 function uuid() {
@@ -59,15 +65,17 @@ export function createSeedData() {
     tarifas: [
       {
         id: tar1,
-        nombre: "Estandar",
+        nombre: "Dia completo (24h)",
         precio_dia: 25000,
-        descripcion: "Alquiler por dia",
+        horas_duracion: 24,
+        descripcion: "Entrega y recogida a las 24 horas",
       },
       {
         id: tar2,
-        nombre: "Fin de semana",
-        precio_dia: 30000,
-        descripcion: "Viernes a domingo",
+        nombre: "Medio dia (12h)",
+        precio_dia: 15000,
+        horas_duracion: 12,
+        descripcion: "Alquiler por 12 horas",
       },
     ],
     usuarios: [
@@ -100,15 +108,18 @@ export function createSeedData() {
         cliente_nombre: "Juan Perez",
         cliente_telefono: "300 111 2233",
         direccion: "Barrio Centro, Calle 10 #5-20",
-        fecha_entrega: todayStr(),
-        hora_entrega: "10:00",
+        fecha_entrega: addDaysStr(-1),
+        hora_entrega: "09:00",
         lavadora_id: inv1,
         lavadora_codigo: "LAV-01",
-        dias_alquiler: 2,
+        dias_alquiler: 1,
+        horas_alquiler: 24,
         tarifa_id: tar1,
-        total: 50000,
-        estado: "confirmada",
-        notas: "Entregar en porteria",
+        total: 25000,
+        estado: "entregada",
+        estado_pago: "pendiente de pago",
+        monto_pagado: "",
+        notas: "Cobrar al recoger hoy 9am",
       },
       {
         id: "sol-002",
@@ -116,15 +127,18 @@ export function createSeedData() {
         cliente_nombre: "Laura Gomez",
         cliente_telefono: "310 444 5566",
         direccion: "Kennedy, Carrera 78 #45-12",
-        fecha_entrega: addDaysStr(1),
-        hora_entrega: "14:30",
-        lavadora_id: "",
-        lavadora_codigo: "",
-        dias_alquiler: 3,
-        tarifa_id: tar1,
-        total: 75000,
-        estado: "pendiente",
-        notas: "",
+        fecha_entrega: addDaysStr(-1),
+        hora_entrega: "14:00",
+        lavadora_id: inv2,
+        lavadora_codigo: "LAV-02",
+        dias_alquiler: 1,
+        horas_alquiler: 12,
+        tarifa_id: tar2,
+        total: 15000,
+        estado: "entregada",
+        estado_pago: "pendiente de pago",
+        monto_pagado: "",
+        notas: "Recogida 12h - cobrar en puerta",
       },
       {
         id: "sol-003",
@@ -132,15 +146,18 @@ export function createSeedData() {
         cliente_nombre: "Pedro Ramirez",
         cliente_telefono: "320 777 8899",
         direccion: "Suba, Calle 127 #15-30",
-        fecha_entrega: addDaysStr(3),
-        hora_entrega: "09:00",
-        lavadora_id: inv2,
-        lavadora_codigo: "LAV-02",
+        fecha_entrega: todayStr(),
+        hora_entrega: "08:00",
+        lavadora_id: inv3,
+        lavadora_codigo: "LAV-03",
         dias_alquiler: 1,
-        tarifa_id: tar2,
-        total: 30000,
-        estado: "pendiente",
-        notas: "Cliente pide factura",
+        horas_alquiler: 24,
+        tarifa_id: tar1,
+        total: 25000,
+        estado: "entregada",
+        estado_pago: "pago parcial",
+        monto_pagado: 10000,
+        notas: "Abono al entregar; saldo al recoger",
       },
       {
         id: "sol-004",
@@ -148,15 +165,18 @@ export function createSeedData() {
         cliente_nombre: "Sofia Mendoza",
         cliente_telefono: "315 222 3344",
         direccion: "Chapinero, Calle 53 #7-88",
-        fecha_entrega: addDaysStr(-2),
-        hora_entrega: "11:00",
-        lavadora_id: inv3,
-        lavadora_codigo: "LAV-03",
-        dias_alquiler: 2,
-        tarifa_id: tar1,
-        total: 50000,
-        estado: "entregada",
-        notas: "",
+        fecha_entrega: todayStr(),
+        hora_entrega: "10:00",
+        lavadora_id: inv1,
+        lavadora_codigo: "LAV-01",
+        dias_alquiler: 1,
+        horas_alquiler: 12,
+        tarifa_id: tar2,
+        total: 15000,
+        estado: "confirmada",
+        estado_pago: "pendiente de pago",
+        monto_pagado: "",
+        notas: "Entrega confirmada; recogida hoy 10pm",
       },
       {
         id: "sol-005",
@@ -164,28 +184,74 @@ export function createSeedData() {
         cliente_nombre: "Diego Castro",
         cliente_telefono: "301 999 0011",
         direccion: "Engativa, Av. Ciudad de Cali #100-50",
+        fecha_entrega: addDaysStr(-2),
+        hora_entrega: "11:00",
+        lavadora_id: inv2,
+        lavadora_codigo: "LAV-02",
+        dias_alquiler: 1,
+        horas_alquiler: 24,
+        tarifa_id: tar1,
+        total: 25000,
+        estado: "recogida",
+        estado_pago: "pago efectivo",
+        monto_pagado: "",
+        notas: "Ya cobrado en recogida",
+      },
+      {
+        id: "sol-006",
+        fecha_solicitud: nowStr(),
+        cliente_nombre: "Ana Ruiz",
+        cliente_telefono: "318 555 6677",
+        direccion: "Teusaquillo, Carrera 45 #12-8",
+        fecha_entrega: addDaysStr(1),
+        hora_entrega: "15:00",
+        lavadora_id: "",
+        lavadora_codigo: "",
+        dias_alquiler: 1,
+        horas_alquiler: 24,
+        tarifa_id: tar1,
+        total: 25000,
+        estado: "pendiente",
+        estado_pago: "pendiente de pago",
+        monto_pagado: "",
+        notas: "Aun no entregada",
+      },
+      {
+        id: "sol-007",
+        fecha_solicitud: nowStr(),
+        cliente_nombre: "Luis Vargas",
+        cliente_telefono: "312 888 9900",
+        direccion: "Fontibon, Calle 20 #68-40",
         fecha_entrega: addDaysStr(-1),
         hora_entrega: "16:00",
-        lavadora_id: inv1,
-        lavadora_codigo: "LAV-01",
+        lavadora_id: inv3,
+        lavadora_codigo: "LAV-03",
         dias_alquiler: 1,
+        horas_alquiler: 24,
         tarifa_id: tar1,
         total: 25000,
         estado: "cancelada",
-        notas: "Cliente cancelo por viaje",
+        estado_pago: "pendiente de pago",
+        monto_pagado: "",
+        notas: "Cliente cancelo",
       },
     ],
   };
 }
 
+function migrateStore(store) {
+  store.solicitudes?.forEach((s) => normalizeSolicitudPago(s));
+  return store;
+}
+
 function loadStore() {
   try {
     const raw = localStorage.getItem(MOCK_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return migrateStore(JSON.parse(raw));
   } catch {
     /* usar seed */
   }
-  return createSeedData();
+  return migrateStore(createSeedData());
 }
 
 function saveStore(store) {
@@ -199,36 +265,6 @@ export function resetMockData() {
 
 function delay(ms = 120) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function buildReport(solicitudes, desde, hasta) {
-  const d0 = desde ? new Date(desde + "T00:00:00") : new Date(0);
-  const d1 = hasta ? new Date(hasta + "T23:59:59") : new Date();
-
-  const filtered = solicitudes.filter((r) => {
-    const fe = new Date(r.fecha_entrega + "T12:00:00");
-    return fe >= d0 && fe <= d1;
-  });
-
-  let ingresos = 0;
-  let entregadas = 0;
-  let canceladas = 0;
-
-  filtered.forEach((r) => {
-    if (r.estado === "entregada") {
-      ingresos += Number(r.total) || 0;
-      entregadas++;
-    }
-    if (r.estado === "cancelada") canceladas++;
-  });
-
-  return {
-    ingresos,
-    total_solicitudes: filtered.length,
-    entregadas,
-    canceladas,
-    detalle: filtered,
-  };
 }
 
 function upsert(collection, payload) {
@@ -273,7 +309,7 @@ export async function mockRequest(method, params = {}, body = null) {
         case "reportes":
           return {
             ok: true,
-            data: buildReport(store.solicitudes, params.desde, params.hasta),
+            data: buildReporteFinanciero(store.solicitudes, params.desde, params.hasta),
           };
         default:
           throw new Error("Recurso no encontrado");
@@ -296,6 +332,9 @@ export async function mockRequest(method, params = {}, body = null) {
             id: uuid(),
             fecha_solicitud: nowStr(),
             estado: "pendiente",
+            estado_pago: ESTADO_PAGO_DEFAULT,
+            monto_pagado: "",
+            horas_alquiler: body.horas_alquiler || (Number(body.dias_alquiler) || 1) * 24,
             ...body,
           };
           store.solicitudes.push(row);

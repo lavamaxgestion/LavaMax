@@ -1,6 +1,15 @@
 import { api, sortByEntrega, isUrgent, formatDate, formatMoney } from "../api.js";
-
-const ESTADOS = ["pendiente", "confirmada", "entregada", "cancelada"];
+import {
+  ESTADO_PAGO_DEFAULT,
+  pagoBadgeClass,
+  normalizeSolicitudPago,
+} from "../finanzas.js";
+import {
+  formatFechaHoraRecogida,
+  formatDuracionAlquiler,
+  getFechaHoraRecogida,
+} from "../alquiler.js";
+import { ESTADOS_GESTION, isOrdenActiva } from "../estados.js";
 
 export async function renderOrdenes(container, topbar) {
   topbar.innerHTML = `
@@ -11,7 +20,7 @@ export async function renderOrdenes(container, topbar) {
 
   try {
     const { data } = await api.getSolicitudes();
-    const items = sortByEntrega(data || []);
+    const items = sortByEntrega((data || []).map(normalizeSolicitudPago));
     renderList(container, items);
   } catch (err) {
     container.innerHTML = `
@@ -27,9 +36,10 @@ export async function renderOrdenes(container, topbar) {
 }
 
 function renderList(container, items) {
-  const pendientes = items.filter((i) => i.estado !== "entregada" && i.estado !== "cancelada");
   const hoy = new Date().toISOString().slice(0, 10);
-  const entregasHoy = pendientes.filter((i) => i.fecha_entrega === hoy).length;
+  const pendientes = items.filter(isOrdenActiva);
+  const entregasHoy = items.filter((i) => i.fecha_entrega === hoy && isOrdenActiva(i)).length;
+  const recogidas = items.filter((i) => i.estado === "recogida").length;
 
   container.innerHTML = `
     <div class="stats-grid">
@@ -42,8 +52,8 @@ function renderList(container, items) {
         <div class="stat-value">${entregasHoy}</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Total registradas</div>
-        <div class="stat-value">${items.length}</div>
+        <div class="stat-label">Recogidas</div>
+        <div class="stat-value">${recogidas}</div>
       </div>
     </div>
 
@@ -53,13 +63,25 @@ function renderList(container, items) {
           <span>Estado</span>
           <select id="filter-estado">
             <option value="">Todos</option>
-            ${ESTADOS.map((e) => `<option value="${e}">${e}</option>`).join("")}
+            ${ESTADOS_GESTION.map((e) => `<option value="${e}">${e}</option>`).join("")}
           </select>
+        </label>
+        <label class="field">
+          <span>Filtrar por fecha</span>
+          <select id="filter-fecha-tipo">
+            <option value="entrega">Fecha de entrega</option>
+            <option value="recogida">Fecha de recogida</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Fecha</span>
+          <input type="date" id="filter-fecha" />
         </label>
         <label class="field">
           <span>Buscar cliente</span>
           <input type="search" id="filter-buscar" placeholder="Nombre o telefono" />
         </label>
+        <button type="button" class="btn btn-ghost btn-sm" id="filter-limpiar-fecha">Limpiar fecha</button>
       </div>
       <div id="orders-list"></div>
     </div>
@@ -68,13 +90,30 @@ function renderList(container, items) {
   const listEl = document.getElementById("orders-list");
   const filterEstado = document.getElementById("filter-estado");
   const filterBuscar = document.getElementById("filter-buscar");
+  const filterFecha = document.getElementById("filter-fecha");
+  const filterFechaTipo = document.getElementById("filter-fecha-tipo");
+  const filterLimpiarFecha = document.getElementById("filter-limpiar-fecha");
+
+  function matchFecha(item, fecha) {
+    if (filterFechaTipo.value === "recogida") {
+      const recogida = getFechaHoraRecogida(item);
+      if (!recogida) return false;
+      const y = recogida.getFullYear();
+      const m = String(recogida.getMonth() + 1).padStart(2, "0");
+      const d = String(recogida.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}` === fecha;
+    }
+    return item.fecha_entrega === fecha;
+  }
 
   function paint() {
     let filtered = sortByEntrega(items);
     const estado = filterEstado.value;
+    const fecha = filterFecha.value;
     const q = filterBuscar.value.trim().toLowerCase();
 
     if (estado) filtered = filtered.filter((i) => i.estado === estado);
+    if (fecha) filtered = filtered.filter((i) => matchFecha(i, fecha));
     if (q) {
       filtered = filtered.filter(
         (i) =>
@@ -102,18 +141,20 @@ function renderList(container, items) {
             <div class="order-card-header">
               <strong>${escapeHtml(item.cliente_nombre)}</strong>
               <span class="badge badge-${item.estado}">${item.estado}</span>
+              <span class="badge ${pagoBadgeClass(item.estado_pago || ESTADO_PAGO_DEFAULT)}">${item.estado_pago || ESTADO_PAGO_DEFAULT}</span>
               ${urgent ? '<span class="badge badge-urgente">Pronto</span>' : ""}
             </div>
             <div class="order-meta">
               <div>Tel: <strong>${escapeHtml(item.cliente_telefono || "-")}</strong></div>
               <div>${escapeHtml(item.direccion || "Sin direccion")}</div>
-              <div>Lavadora: <strong>${escapeHtml(item.lavadora_codigo || item.lavadora_id || "-")}</strong> · ${item.dias_alquiler || 1} dia(s) · ${formatMoney(item.total)}</div>
+              <div>Recogida: <strong>${formatFechaHoraRecogida(item)}</strong> · ${formatDuracionAlquiler(item)}</div>
+              <div>Lavadora: <strong>${escapeHtml(item.lavadora_codigo || item.lavadora_id || "-")}</strong> · ${formatMoney(item.total)}</div>
             </div>
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}
           </div>
           <div class="order-card-actions">
             <select class="estado-select" data-id="${item.id}">
-              ${ESTADOS.map(
+              ${ESTADOS_GESTION.map(
                 (e) =>
                   `<option value="${e}" ${e === item.estado ? "selected" : ""}>${e}</option>`
               ).join("")}
@@ -141,6 +182,12 @@ function renderList(container, items) {
 
   filterEstado.addEventListener("change", paint);
   filterBuscar.addEventListener("input", paint);
+  filterFecha.addEventListener("change", paint);
+  filterFechaTipo.addEventListener("change", paint);
+  filterLimpiarFecha.addEventListener("click", () => {
+    filterFecha.value = "";
+    paint();
+  });
   paint();
 }
 

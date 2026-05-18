@@ -1,4 +1,6 @@
 import { api, formatMoney } from "../api.js";
+import { ESTADO_PAGO_DEFAULT } from "../finanzas.js";
+import { horasFromTarifa } from "../alquiler.js";
 
 function lavadoraLabel(l) {
   return `${l.codigo} - ${l.modelo}`;
@@ -201,21 +203,27 @@ export async function renderNuevaSolicitud(container, topbar) {
             <small class="field-hint">Opcional. Dejar vacio para asignar despues.</small>
           </label>
           <label class="field">
-            <span>Dias de alquiler *</span>
+            <span>Periodos de alquiler *</span>
             <input name="dias_alquiler" type="number" min="1" value="1" required id="dias" />
+            <small class="field-hint">Cada periodo usa la duracion de la tarifa (12h o 24h).</small>
           </label>
           <label class="field">
-            <span>Tarifa</span>
+            <span>Tarifa (duracion)</span>
             <select name="tarifa_id" id="tarifa_id">
               ${tarifas.length
                 ? tarifas
-                    .map(
-                      (t, i) =>
-                        `<option value="${t.id}" data-precio="${t.precio_dia}" ${i === 0 ? "selected" : ""}>${t.nombre} (${formatMoney(t.precio_dia)}/dia)</option>`
-                    )
+                    .map((t, i) => {
+                      const horas = horasFromTarifa(t);
+                      return `<option value="${t.id}" data-precio="${t.precio_dia}" data-horas="${horas}" ${i === 0 ? "selected" : ""}>${t.nombre} · ${horas}h (${formatMoney(t.precio_dia)})</option>`;
+                    })
                     .join("")
-                : `<option value="" data-precio="25000">Tarifa estandar</option>`}
+                : `<option value="" data-precio="25000" data-horas="24">Tarifa estandar 24h</option>`}
             </select>
+          </label>
+          <label class="field">
+            <span>Duracion total</span>
+            <input id="horas-total" type="text" readonly />
+            <input type="hidden" name="horas_alquiler" id="horas_alquiler" />
           </label>
           <label class="field">
             <span>Total estimado</span>
@@ -238,12 +246,21 @@ export async function renderNuevaSolicitud(container, topbar) {
   const diasEl = document.getElementById("dias");
   const tarifaEl = document.getElementById("tarifa_id");
   const totalEl = document.getElementById("total");
+  const horasTotalEl = document.getElementById("horas-total");
+  const horasAlquilerEl = document.getElementById("horas_alquiler");
 
   function calcTotal() {
-    const dias = Number(diasEl.value) || 1;
+    const periodos = Number(diasEl.value) || 1;
     const opt = tarifaEl.selectedOptions[0];
     const precio = Number(opt?.dataset.precio || tarifaDefault?.precio_dia || 25000);
-    totalEl.value = dias * precio;
+    const horasPorPeriodo = Number(opt?.dataset.horas || horasFromTarifa(tarifaDefault));
+    const horasTotal = periodos * horasPorPeriodo;
+    totalEl.value = periodos * precio;
+    horasAlquilerEl.value = horasTotal;
+    horasTotalEl.value =
+      horasPorPeriodo === 12
+        ? `${horasTotal} horas (${periodos} x 12h)`
+        : `${horasTotal} horas (${periodos} dia(s))`;
   }
 
   diasEl.addEventListener("input", calcTotal);
@@ -264,10 +281,13 @@ export async function renderNuevaSolicitud(container, topbar) {
       lavadora_id: fd.get("lavadora_id") || "",
       lavadora_codigo: fd.get("lavadora_codigo") || "",
       dias_alquiler: Number(fd.get("dias_alquiler")),
+      horas_alquiler: Number(fd.get("horas_alquiler")) || 24,
       tarifa_id: fd.get("tarifa_id") || "",
       total: Number(fd.get("total")),
       notas: fd.get("notas") || "",
       estado: "pendiente",
+      estado_pago: ESTADO_PAGO_DEFAULT,
+      monto_pagado: "",
     };
 
     try {
