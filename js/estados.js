@@ -19,3 +19,28 @@ export function isOrdenEnRuta(solicitud) {
   const e = solicitud.estado;
   return e === "confirmada" || e === "entregada";
 }
+
+/** En modal de pagos: solo entregada → recogida. */
+export function puedeCambiarGestionEnPagos(estadoActual) {
+  return estadoActual === "entregada";
+}
+
+export function esTransicionRecogidaEnPagos(estadoDesde, estadoHacia) {
+  return estadoDesde === "entregada" && estadoHacia === "recogida";
+}
+
+/** Estados editables en la vista de entregas del dia. */
+export const ESTADOS_GESTION_ENTREGA = ["pendiente", "confirmada", "entregada"];
+
+export function hoyISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Solicitud con entrega programada para hoy (excluye cancelada y recogida). */
+export function isEntregaDelDia(solicitud, hoy = hoyISO()) {
+  return (
+    solicitud.fecha_entrega === hoy &&
+    solicitud.estado !== "cancelada" &&
+    solicitud.estado !== "recogida"
+  );
+}

@@ -696,8 +696,28 @@ tr:hover td {
   color: var(--text);
 }
 
-.pagos-stats {
+.pagos-stats,
+.entregas-stats {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.entregas-buscar {
+  margin-bottom: 1rem;
+  max-width: 320px;
+}
+
+.entregas-card .order-card-actions {
+  display: flex;
+  align-items: stretch;
+}
+
+.entregas-card .order-card-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.dialog-entrega {
+  max-width: 420px;
 }
 
 @media (max-width: 768px) {

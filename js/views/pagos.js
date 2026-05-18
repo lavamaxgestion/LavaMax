@@ -14,11 +14,12 @@ import {
   pagoBadgeClass,
   normalizeSolicitudPago,
 } from "../finanzas.js";
-import { ESTADOS_GESTION, isOrdenEnRuta } from "../estados.js";
-
-const ESTADOS_GESTION_EN_RUTA = ESTADOS_GESTION.filter(
-  (e) => e !== "pendiente" && e !== "cancelada"
-);
+import {
+  ESTADOS_GESTION,
+  isOrdenEnRuta,
+  puedeCambiarGestionEnPagos,
+  esTransicionRecogidaEnPagos,
+} from "../estados.js";
 
 let pagoDialogBound = false;
 let modalContext = null;
@@ -312,9 +313,6 @@ function setupPagoDialog() {
 
   if (!dialog || !form) return;
 
-  selGestion.innerHTML = ESTADOS_GESTION_EN_RUTA.map(
-    (e) => `<option value="${e}">${e}</option>`
-  ).join("");
   selPago.innerHTML = ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("");
 
   function closeDialog() {
@@ -372,7 +370,16 @@ function setupPagoDialog() {
     const nuevoPago = selPago.value;
     const payload = {};
 
-    if (nuevoGestion !== snapshot.estado) payload.estado = nuevoGestion;
+    if (nuevoGestion !== snapshot.estado) {
+      if (!esTransicionRecogidaEnPagos(snapshot.estado, nuevoGestion)) {
+        window.showToast?.(
+          "Solo puedes cambiar la gestion de entregada a recogida",
+          "error"
+        );
+        return;
+      }
+      payload.estado = nuevoGestion;
+    }
     if (nuevoPago !== snapshot.estado_pago) payload.estado_pago = nuevoPago;
 
     if (nuevoPago === "pago parcial") {
@@ -421,6 +428,7 @@ function fillPagoDialog(item) {
   const montoWrap = document.getElementById("dialog-monto-wrap");
   const montoInput = document.getElementById("dialog-monto-pagado");
   const cambiosEl = document.getElementById("dialog-pago-cambios");
+  const gestionHint = document.getElementById("dialog-pago-gestion-hint");
 
   const eg = item.estado || "pendiente";
   const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
@@ -434,7 +442,29 @@ function fillPagoDialog(item) {
     <p>Total ${formatMoney(item.total)} · Saldo ${formatMoney(saldo)}</p>
   `;
 
-  selGestion.value = eg;
+  if (puedeCambiarGestionEnPagos(eg)) {
+    selGestion.disabled = false;
+    selGestion.innerHTML = `
+      <option value="entregada">entregada</option>
+      <option value="recogida">recogida</option>
+    `;
+    selGestion.value = "entregada";
+    if (gestionHint) {
+      gestionHint.hidden = false;
+      gestionHint.textContent =
+        "Al recoger la lavadora, cambia la gestion de entregada a recogida.";
+    }
+  } else {
+    selGestion.disabled = true;
+    selGestion.innerHTML = `<option value="${escapeHtml(eg)}">${escapeHtml(eg)}</option>`;
+    selGestion.value = eg;
+    if (gestionHint) {
+      gestionHint.hidden = false;
+      gestionHint.textContent =
+        "La gestion no se puede cambiar aqui. Marca la entrega en Entregas hoy antes de recoger.";
+    }
+  }
+
   selPago.value = ep;
   montoInput.value = item.monto_pagado !== "" && item.monto_pagado != null ? item.monto_pagado : "";
   montoInput.max = Number(item.total) || 0;

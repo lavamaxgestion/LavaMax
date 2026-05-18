@@ -31,6 +31,9 @@
         <a href="#/nueva" class="nav-link" data-route="/nueva">
           <span class="nav-icon">+</span> Nueva solicitud
         </a>
+        <a href="#/entregas" class="nav-link" data-route="/entregas">
+          <span class="nav-icon">E</span> Entregas hoy
+        </a>
         <a href="#/pagos" class="nav-link" data-route="/pagos">
           <span class="nav-icon">$</span> Pagos
         </a>
@@ -99,6 +102,25 @@
     </form>
   </dialog>
 
+  <dialog id="dialog-entrega-update" class="dialog dialog-entrega">
+    <form id="form-entrega-update">
+      <header class="dialog-header">
+        <h2>Actualizar gestion</h2>
+        <button type="button" class="btn-icon dialog-close" data-close-entrega aria-label="Cerrar">x</button>
+      </header>
+      <div id="dialog-entrega-resumen" class="pagos-dialog-resumen"></div>
+      <label class="field">
+        <span>Estado de gestion</span>
+        <select id="dialog-entrega-estado"></select>
+      </label>
+      <p class="hint pagos-dialog-cambios" id="dialog-entrega-cambios" hidden></p>
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" data-close-entrega>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Confirmar cambios</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog id="dialog-pago-update" class="dialog dialog-pago">
     <form id="form-pago-update">
       <header class="dialog-header">
@@ -109,6 +131,7 @@
       <label class="field">
         <span>Gestion</span>
         <select id="dialog-estado-gestion"></select>
+        <small class="field-hint" id="dialog-pago-gestion-hint" hidden></small>
       </label>
       <label class="field">
         <span>Estado de pago</span>
