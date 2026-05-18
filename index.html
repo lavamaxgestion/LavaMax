@@ -12,9 +12,11 @@
 <body>
   <div id="toast" class="toast" hidden role="status"></div>
 
+  <div id="login-screen" class="login-screen" hidden></div>
+
   <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
 
-  <div class="app-shell">
+  <div class="app-shell" id="app-shell" hidden>
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <span class="brand-icon" aria-hidden="true">LMax</span>
@@ -25,39 +27,44 @@
       </div>
 
       <nav class="nav" aria-label="Principal">
-        <a href="#/" class="nav-link" data-route="/">
+        <a href="#/" class="nav-link" data-route="/" data-roles="admin operador">
           <span class="nav-icon">#</span> Ordenes
         </a>
-        <a href="#/nueva" class="nav-link" data-route="/nueva">
+        <a href="#/nueva" class="nav-link" data-route="/nueva" data-roles="admin operador">
           <span class="nav-icon">+</span> Nueva solicitud
         </a>
-        <a href="#/entregas" class="nav-link" data-route="/entregas">
+        <a href="#/entregas" class="nav-link" data-route="/entregas" data-roles="admin repartidor">
           <span class="nav-icon">E</span> Entregas hoy
         </a>
-        <a href="#/pagos" class="nav-link" data-route="/pagos">
+        <a href="#/pagos" class="nav-link" data-route="/pagos" data-roles="admin operador repartidor">
           <span class="nav-icon">$</span> Pagos
         </a>
       </nav>
 
-      <div class="nav-section">
+      <div class="nav-section" data-roles="admin">
         <span class="nav-label">Administrador</span>
         <nav class="nav" aria-label="Administracion">
-          <a href="#/admin/inventario" class="nav-link" data-route="/admin/inventario">
+          <a href="#/admin/inventario" class="nav-link" data-route="/admin/inventario" data-roles="admin">
             <span class="nav-icon">I</span> Inventario
           </a>
-          <a href="#/admin/tarifas" class="nav-link" data-route="/admin/tarifas">
+          <a href="#/admin/tarifas" class="nav-link" data-route="/admin/tarifas" data-roles="admin">
             <span class="nav-icon">$</span> Tarifas
           </a>
-          <a href="#/admin/usuarios" class="nav-link" data-route="/admin/usuarios">
+          <a href="#/admin/usuarios" class="nav-link" data-route="/admin/usuarios" data-roles="admin">
             <span class="nav-icon">U</span> Usuarios
           </a>
-          <a href="#/admin/reportes" class="nav-link" data-route="/admin/reportes">
+          <a href="#/admin/reportes" class="nav-link" data-route="/admin/reportes" data-roles="admin">
             <span class="nav-icon">R</span> Reportes
           </a>
         </nav>
       </div>
 
       <div class="sidebar-footer">
+        <div id="session-user" class="session-user" hidden>
+          <strong class="session-name"></strong>
+          <small class="session-role"></small>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">Cerrar sesion</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-config-api">API</button>
       </div>
     </aside>

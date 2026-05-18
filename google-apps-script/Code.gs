@@ -47,6 +47,8 @@ function routeGet(resource, p) {
       return { ok: true, data: listRows(SHEETS.inventario) };
     case "tarifas":
       return { ok: true, data: listRows(SHEETS.tarifas) };
+    case "auth":
+      return loginByPin(p.pin);
     case "usuarios":
       requireAdmin(p);
       return { ok: true, data: listRows(SHEETS.usuarios) };
@@ -86,6 +88,27 @@ function requireAdmin(p) {
   }
 }
 
+function loginByPin(pin) {
+  if (!pin) throw new Error("Ingresa tu PIN");
+  const users = listRows(SHEETS.usuarios);
+  const user = users.find(function (u) {
+    return (
+      String(u.pin) === String(pin) &&
+      String(u.activo || "").toLowerCase() === "si"
+    );
+  });
+  if (!user) throw new Error("PIN incorrecto o usuario inactivo");
+  return {
+    ok: true,
+    data: {
+      id: user.id,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol,
+    },
+  };
+}
+
 function getSheet(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
@@ -119,7 +142,7 @@ function initHeaders(name, sh) {
     ],
     Inventario: ["id", "codigo", "modelo", "capacidad_kg", "estado"],
     Tarifas: ["id", "nombre", "precio_dia", "horas_duracion", "descripcion"],
-    Usuarios: ["id", "nombre", "email", "rol", "activo"],
+    Usuarios: ["id", "nombre", "email", "rol", "pin", "activo"],
   };
   const row = headers[name];
   if (row) sh.getRange(1, 1, 1, row.length).setValues([row]);

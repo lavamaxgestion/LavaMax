@@ -84,6 +84,7 @@ export function createSeedData() {
         nombre: "Ana Operadora",
         email: "ana@lavarent.local",
         rol: "operador",
+        pin: "2222",
         activo: "si",
       },
       {
@@ -91,6 +92,7 @@ export function createSeedData() {
         nombre: "Carlos Repartidor",
         email: "carlos@lavarent.local",
         rol: "repartidor",
+        pin: "3333",
         activo: "si",
       },
       {
@@ -98,6 +100,7 @@ export function createSeedData() {
         nombre: "Maria Admin",
         email: "maria@lavarent.local",
         rol: "admin",
+        pin: "1111",
         activo: "si",
       },
     ],
@@ -239,15 +242,30 @@ export function createSeedData() {
   };
 }
 
+const DEFAULT_PINS = { admin: "1111", operador: "2222", repartidor: "3333" };
+
 function migrateStore(store) {
   store.solicitudes?.forEach((s) => normalizeSolicitudPago(s));
+  store.usuarios?.forEach((u) => {
+    if (!u.pin && u.rol && DEFAULT_PINS[u.rol]) {
+      u.pin = DEFAULT_PINS[u.rol];
+    }
+  });
   return store;
 }
 
 function loadStore() {
   try {
     const raw = localStorage.getItem(MOCK_STORAGE_KEY);
-    if (raw) return migrateStore(JSON.parse(raw));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const pinsBefore = JSON.stringify(parsed.usuarios?.map((u) => u.pin));
+      const store = migrateStore(parsed);
+      if (JSON.stringify(store.usuarios?.map((u) => u.pin)) !== pinsBefore) {
+        saveStore(store);
+      }
+      return store;
+    }
   } catch {
     /* usar seed */
   }
@@ -304,6 +322,25 @@ export async function mockRequest(method, params = {}, body = null) {
           return { ok: true, data: [...store.inventario] };
         case "tarifas":
           return { ok: true, data: [...store.tarifas] };
+        case "auth": {
+          const pin = params.pin;
+          if (!pin) throw new Error("Ingresa tu PIN");
+          const user = store.usuarios.find(
+            (u) =>
+              String(u.pin) === String(pin) &&
+              String(u.activo || "").toLowerCase() === "si"
+          );
+          if (!user) throw new Error("PIN incorrecto o usuario inactivo");
+          return {
+            ok: true,
+            data: {
+              id: user.id,
+              nombre: user.nombre,
+              email: user.email,
+              rol: user.rol,
+            },
+          };
+        }
         case "usuarios":
           return { ok: true, data: [...store.usuarios] };
         case "reportes":

@@ -74,7 +74,7 @@ export async function renderUsuarios(container) {
     const { data } = await api.getUsuarios();
     renderCrudTable(container, {
       title: "Usuarios del sistema",
-      columns: ["nombre", "email", "rol", "activo"],
+      columns: ["nombre", "email", "rol", "pin", "activo"],
       items: data || [],
       fields: [
         { name: "nombre", label: "Nombre", required: true },
@@ -85,10 +85,20 @@ export async function renderUsuarios(container) {
           type: "select",
           options: ["admin", "operador", "repartidor"],
         },
+        {
+          name: "pin",
+          label: "PIN de acceso (4-6 digitos)",
+          type: "password",
+          inputmode: "numeric",
+          pattern: "[0-9]{4,6}",
+          required: true,
+        },
         { name: "activo", label: "Activo (si/no)", placeholder: "si" },
       ],
       onSave: (p) => api.saveUsuario(p),
       onDelete: (id) => api.deleteUsuario(id),
+      formatCell: (col, val) =>
+        col === "pin" ? (val ? "****" : "-") : esc(String(val ?? "")),
     });
   } catch (e) {
     container.innerHTML = errorCard(e.message);

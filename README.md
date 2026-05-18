@@ -94,7 +94,9 @@ Las ordenes se ordenan por **fecha + hora de entrega** ascendente: la entrega ma
 
 ## Seguridad
 
-- Las operaciones de administrador (usuarios, inventario, tarifas, reportes) requieren `adminKey`.
+- **Ingreso por PIN**: cada usuario tiene un PIN (4-6 digitos) en la hoja Usuarios. Al iniciar sesion solo ve las vistas de su rol.
+- **Roles**: `admin` (toda la app), `operador` (ordenes, nueva solicitud, pagos), `repartidor` (entregas hoy, pagos).
+- Las operaciones de administrador (usuarios, inventario, tarifas, reportes) requieren `adminKey` en el API.
 - Crear solicitudes es publico (para clientes desde tu sitio en Pages).
 - Para mayor seguridad, puedes restringir la Web App y usar un proxy; para uso interno pequeno, la clave admin es suficiente.
 

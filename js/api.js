@@ -96,7 +96,54 @@ async function request(method, params = {}, body = null) {
   return data;
 }
 
+async function authRequest(pin) {
+  if (isMockMode()) {
+    return request("GET", { resource: "auth", pin });
+  }
+
+  const base = getApiUrl();
+  if (!base) {
+    throw new Error("Configura la URL del API en el boton API del menu.");
+  }
+
+  const url = new URL(base);
+  url.searchParams.set("resource", "auth");
+  url.searchParams.set("pin", pin);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(url.toString(), {
+      method: "GET",
+      mode: "cors",
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("La API no respondio a tiempo.");
+    }
+    throw new Error("No se pudo conectar con la API.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(await res.text());
+  } catch {
+    throw new Error("Respuesta invalida del API.");
+  }
+
+  if (!data.ok) {
+    throw new Error(data.error || "PIN incorrecto");
+  }
+  return data;
+}
+
 export const api = {
+  login: (pin) => authRequest(pin),
   getSolicitudes: () => request("GET", { resource: "solicitudes" }),
   createSolicitud: (payload) =>
     request("POST", { resource: "solicitudes" }, payload),

@@ -1,5 +1,13 @@
 import { getApiUrl, setApiConfig, isMockMode } from "./api.js";
+import {
+  getSession,
+  clearSession,
+  canAccessRoute,
+  getDefaultRoute,
+  applyNavForRole,
+} from "./auth.js";
 import { resetMockData } from "./mock-data.js";
+import { mountLogin } from "./views/login.js";
 import { renderOrdenes } from "./views/ordenes.js";
 import { renderNuevaSolicitud } from "./views/nueva-solicitud.js";
 import { renderEntregas } from "./views/entregas.js";
@@ -25,6 +33,8 @@ const ROUTES = {
 const content = document.getElementById("content");
 const pageTitle = document.getElementById("page-title");
 const topbarActions = document.getElementById("topbar-actions");
+const appShell = document.getElementById("app-shell");
+const loginScreen = document.getElementById("login-screen");
 const sidebar = document.getElementById("sidebar");
 const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const menuToggle = document.getElementById("menu-toggle");
@@ -64,12 +74,62 @@ function setActiveNav(route) {
 }
 
 let navToken = 0;
+let unmountLogin = null;
+
+function showLogin() {
+  if (unmountLogin) {
+    unmountLogin();
+    unmountLogin = null;
+  }
+  if (appShell) appShell.hidden = true;
+  if (loginScreen) {
+    loginScreen.hidden = false;
+    unmountLogin = mountLogin(loginScreen, onLoginSuccess);
+  }
+}
+
+function onLoginSuccess(session) {
+  if (unmountLogin) {
+    unmountLogin();
+    unmountLogin = null;
+  }
+  if (loginScreen) {
+    loginScreen.hidden = true;
+    loginScreen.innerHTML = "";
+  }
+  if (appShell) appShell.hidden = false;
+  applyNavForRole(session.rol);
+  goTo(getDefaultRoute(session.rol));
+}
+
+function ensureAuthenticated() {
+  const session = getSession();
+  if (!session) {
+    showLogin();
+    return null;
+  }
+  if (appShell?.hidden) {
+    if (loginScreen) loginScreen.hidden = true;
+    appShell.hidden = false;
+    applyNavForRole(session.rol);
+  }
+  return session;
+}
 
 async function navigate() {
   if (!content) return;
 
+  const session = ensureAuthenticated();
+  if (!session) return;
+
   const token = ++navToken;
   const route = getRoute();
+
+  if (!canAccessRoute(route, session.rol)) {
+    window.showToast("No tienes acceso a esta seccion", "error");
+    goTo(getDefaultRoute(session.rol));
+    return;
+  }
   const def = ROUTES[route] || ROUTES["/"];
   pageTitle.textContent = def.title;
   setActiveNav(route in ROUTES ? route : "/");
@@ -105,7 +165,8 @@ function escapeHtml(s) {
 
 function goTo(route) {
   const target = route === "/" ? "#/" : `#${route}`;
-  if (location.hash === target) {
+  const currentRoute = getRoute();
+  if (currentRoute === route || location.hash === target) {
     navigate();
   } else {
     location.hash = target;
@@ -156,7 +217,8 @@ document.getElementById("form-api")?.addEventListener("submit", (e) => {
 
 function showMockBanner() {
   document.getElementById("mock-badge-wrap")?.remove();
-  if (!isMockMode() || !topbarActions) return;
+  const session = getSession();
+  if (!isMockMode() || !topbarActions || session?.rol !== "admin") return;
 
   const wrap = document.createElement("div");
   wrap.id = "mock-badge-wrap";
@@ -174,8 +236,15 @@ function showMockBanner() {
   });
 }
 
+document.getElementById("btn-logout")?.addEventListener("click", () => {
+  clearSession();
+  location.hash = "";
+  showLogin();
+});
+
 if (!getApiUrl()) {
   setTimeout(() => {
+    if (!getSession()) return;
     window.showToast(
       "Modo prueba: datos locales. Configura API cuando tengas Google Sheets.",
       ""
@@ -183,4 +252,10 @@ if (!getApiUrl()) {
   }, 600);
 }
 
-navigate();
+if (getSession()) {
+  if (appShell) appShell.hidden = false;
+  applyNavForRole(getSession().rol);
+  navigate();
+} else {
+  showLogin();
+}

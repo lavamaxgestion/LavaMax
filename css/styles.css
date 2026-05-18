@@ -40,6 +40,11 @@ body.sidebar-open {
   min-height: 100vh;
 }
 
+.app-shell[hidden],
+.login-screen[hidden] {
+  display: none !important;
+}
+
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
@@ -147,6 +152,9 @@ body.sidebar-open {
 }
 
 .sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   margin-top: auto;
   padding-top: 1rem;
 }
@@ -1142,4 +1150,138 @@ tr:hover td {
   .mock-badge {
     font-size: 0.65rem;
   }
+}
+
+/* Login PIN */
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: radial-gradient(ellipse at top, var(--surface-2) 0%, var(--bg) 55%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.login-brand {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.login-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem;
+  text-align: center;
+}
+
+.pin-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pin-dot.filled {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+  text-align: center;
+  margin: 0 0 0.75rem;
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.pin-key {
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pin-key:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.pin-key:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pin-key-muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.pin-key-enter {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #0b1220;
+}
+
+.pin-key-enter:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.login-footnote {
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.session-user {
+  padding: 0.5rem 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+
+.session-user strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.session-user small {
+  color: var(--muted);
+  font-size: 0.75rem;
 }
