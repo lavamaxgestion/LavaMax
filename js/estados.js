@@ -32,6 +32,21 @@ export function esTransicionRecogidaEnPagos(estadoDesde, estadoHacia) {
 /** Estados editables en la vista de entregas del dia. */
 export const ESTADOS_GESTION_ENTREGA = ["pendiente", "confirmada", "entregada"];
 
+/** Estados editables en el modulo de ordenes (antes de entrega). */
+export const ESTADOS_GESTION_ORDENES = ["pendiente", "confirmada", "cancelada"];
+
+export function puedeEditarGestionEnOrdenes(estadoActual) {
+  return estadoActual === "pendiente" || estadoActual === "confirmada";
+}
+
+/** Opciones del select en ordenes segun el estado actual. */
+export function opcionesGestionOrdenes(estadoActual) {
+  if (!puedeEditarGestionEnOrdenes(estadoActual)) {
+    return [estadoActual];
+  }
+  return ESTADOS_GESTION_ORDENES;
+}
+
 export function hoyISO() {
   return new Date().toISOString().slice(0, 10);
 }

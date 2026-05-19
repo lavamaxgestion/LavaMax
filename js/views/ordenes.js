@@ -9,7 +9,13 @@ import {
   formatDuracionAlquiler,
   getFechaHoraRecogida,
 } from "../alquiler.js";
-import { ESTADOS_GESTION, isOrdenActiva } from "../estados.js";
+import {
+  ESTADOS_GESTION,
+  isOrdenActiva,
+  opcionesGestionOrdenes,
+  puedeEditarGestionEnOrdenes,
+  ESTADOS_GESTION_ORDENES,
+} from "../estados.js";
 
 export async function renderOrdenes(container, topbar) {
   topbar.innerHTML = `
@@ -153,27 +159,32 @@ function renderList(container, items) {
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}
           </div>
           <div class="order-card-actions">
-            <select class="estado-select" data-id="${item.id}">
-              ${ESTADOS_GESTION.map(
-                (e) =>
-                  `<option value="${e}" ${e === item.estado ? "selected" : ""}>${e}</option>`
-              ).join("")}
-            </select>
+            ${renderEstadoOrdenesSelect(item)}
           </div>
         </article>`;
       })
       .join("");
 
     listEl.querySelectorAll(".estado-select").forEach((sel) => {
+      if (sel.disabled) return;
+      const prev = sel.dataset.estadoActual;
       sel.addEventListener("change", async (e) => {
         const id = e.target.dataset.id;
+        const nuevo = e.target.value;
+        if (!ESTADOS_GESTION_ORDENES.includes(nuevo)) {
+          e.target.value = prev;
+          window.showToast?.("Estado no permitido en ordenes", "error");
+          return;
+        }
         try {
-          await api.updateSolicitud(id, { estado: e.target.value });
+          await api.updateSolicitud(id, { estado: nuevo });
           const item = items.find((i) => i.id === id);
-          if (item) item.estado = e.target.value;
+          if (item) item.estado = nuevo;
+          e.target.dataset.estadoActual = nuevo;
           window.showToast?.("Estado actualizado", "success");
           paint();
         } catch (err) {
+          e.target.value = prev;
           window.showToast?.(err.message, "error");
         }
       });
@@ -189,6 +200,22 @@ function renderList(container, items) {
     paint();
   });
   paint();
+}
+
+function renderEstadoOrdenesSelect(item) {
+  const opciones = opcionesGestionOrdenes(item.estado);
+  const editable = puedeEditarGestionEnOrdenes(item.estado);
+  if (!editable) {
+    return `<span class="badge badge-${item.estado}" title="Cambiar en Entregas o Pagos">${escapeHtml(item.estado)}</span>`;
+  }
+  return `<select class="estado-select" data-id="${item.id}" data-estado-actual="${escapeHtml(item.estado)}">
+    ${opciones
+      .map(
+        (e) =>
+          `<option value="${e}" ${e === item.estado ? "selected" : ""}>${e}</option>`
+      )
+      .join("")}
+  </select>`;
 }
 
 function escapeHtml(s) {
