@@ -41,7 +41,9 @@ body.sidebar-open {
 }
 
 .app-shell[hidden],
-.login-screen[hidden] {
+.login-screen[hidden],
+.nav-link[hidden],
+.nav-section[hidden] {
   display: none !important;
 }
 

@@ -24,10 +24,15 @@ export function getSession() {
     if (!raw) return null;
     const session = JSON.parse(raw);
     if (!session?.id || !session?.rol) return null;
+    session.rol = normalizeRol(session.rol);
     return session;
   } catch {
     return null;
   }
+}
+
+function normalizeRol(rol) {
+  return String(rol || "").trim().toLowerCase();
 }
 
 export function setSession(user) {
@@ -35,7 +40,7 @@ export function setSession(user) {
     id: user.id,
     nombre: user.nombre,
     email: user.email,
-    rol: user.rol,
+    rol: normalizeRol(user.rol),
     loggedAt: Date.now(),
   };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -47,26 +52,33 @@ export function clearSession() {
 }
 
 export function getDefaultRoute(rol) {
-  return DEFAULT_ROUTE_BY_ROLE[rol] || "/";
+  return DEFAULT_ROUTE_BY_ROLE[normalizeRol(rol)] || "/";
 }
 
 export function canAccessRoute(route, rol) {
-  if (!rol) return false;
-  if (rol === "admin") return true;
-  const allowed = ROUTES_BY_ROLE[rol];
+  const role = normalizeRol(rol);
+  if (!role) return false;
+  if (role === "admin") return true;
+  const allowed = ROUTES_BY_ROLE[role];
   return allowed?.includes(route) ?? false;
 }
 
 export function applyNavForRole(rol) {
+  const role = normalizeRol(rol);
+
   document.querySelectorAll(".nav-link[data-route]").forEach((link) => {
-    const roles = (link.dataset.roles || "").trim().split(/\s+/).filter(Boolean);
-    const visible = roles.includes(rol);
+    const route = link.dataset.route;
+    const visible = canAccessRoute(route, role);
     link.hidden = !visible;
+    link.setAttribute("aria-hidden", visible ? "false" : "true");
+    if (!visible) link.classList.remove("active");
   });
 
   const adminSection = document.querySelector(".nav-section[data-roles]");
   if (adminSection) {
-    adminSection.hidden = rol !== "admin";
+    const showAdmin = role === "admin";
+    adminSection.hidden = !showAdmin;
+    adminSection.setAttribute("aria-hidden", showAdmin ? "false" : "true");
   }
 
   const btnApi = document.getElementById("btn-config-api");
