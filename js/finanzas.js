@@ -60,12 +60,11 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
   let pagos_transferencia = 0;
   let pagos_parciales = 0;
 
-  filtered.forEach((r) => {
+  const detalle = filtered.filter((r) => r.estado !== "cancelada");
+  const detalle_canceladas = filtered.filter((r) => r.estado === "cancelada");
+
+  detalle.forEach((r) => {
     if (r.estado === "entregada") entregadas++;
-    if (r.estado === "cancelada") {
-      canceladas++;
-      return;
-    }
 
     const ep = normalizarEstadoPago(r.estado_pago);
     const cobrado = montoCobrado(r);
@@ -80,6 +79,8 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
     if (ep === "pago parcial") pagos_parciales++;
   });
 
+  canceladas = detalle_canceladas.length;
+
   return {
     ingresos_cobrados,
     por_cobrar,
@@ -91,7 +92,8 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
     pagos_efectivo,
     pagos_transferencia,
     pagos_parciales,
-    detalle: filtered,
+    detalle,
+    detalle_canceladas,
   };
 }
 

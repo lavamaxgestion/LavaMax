@@ -4,6 +4,8 @@ import {
   montoCobrado,
   saldoPendiente,
   pagoBadgeClass,
+  debeMostrarBadgePago,
+  normalizarEstadoPago,
 } from "../finanzas.js";
 
 function esc(s) {
@@ -146,30 +148,10 @@ export async function renderReportes(container) {
           <div class="stat"><div class="stat-label">Efectivo</div><div class="stat-value">${r.pagos_efectivo ?? 0}</div></div>
           <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${r.pagos_transferencia ?? 0}</div></div>
           <div class="stat"><div class="stat-label">Parciales</div><div class="stat-value">${r.pagos_parciales ?? 0}</div></div>
+          <div class="stat"><div class="stat-label">Canceladas</div><div class="stat-value">${r.canceladas ?? 0}</div></div>
         </div>
-        <div class="table-wrap" style="margin-top:1.5rem">
-          <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Pago</th><th>Entrega</th></tr></thead>
-            <tbody>
-              ${(r.detalle || [])
-                .map((row) => {
-                  const ep = row.estado_pago || ESTADO_PAGO_DEFAULT;
-                  const cobrado = montoCobrado(row);
-                  const saldo = saldoPendiente(row);
-                  return `<tr>
-                    <td>${esc(row.fecha_entrega)}</td>
-                    <td>${esc(row.cliente_nombre)}</td>
-                    <td>${formatMoney(row.total)}</td>
-                    <td>${formatMoney(cobrado)}</td>
-                    <td>${formatMoney(saldo)}</td>
-                    <td><span class="badge ${pagoBadgeClass(ep)}">${esc(ep)}</span></td>
-                    <td><span class="badge badge-${row.estado}">${esc(row.estado)}</span></td>
-                  </tr>`;
-                })
-                .join("")}
-            </tbody>
-          </table>
-        </div>`;
+        ${renderTablaReporteCobros(r.detalle || [])}
+        ${renderTablaReporteCanceladas(r.detalle_canceladas || [])}`;
     } catch (e) {
       el.innerHTML = errorCard(e.message);
     }
@@ -177,6 +159,67 @@ export async function renderReportes(container) {
 
   document.getElementById("rep-btn").addEventListener("click", load);
   load();
+}
+
+function renderCeldaPagoReporte(row) {
+  if (!debeMostrarBadgePago(row.estado)) return "—";
+  const ep = normalizarEstadoPago(row.estado_pago) || ESTADO_PAGO_DEFAULT;
+  return `<span class="badge ${pagoBadgeClass(ep)}">${esc(ep)}</span>`;
+}
+
+function renderTablaReporteCobros(rows) {
+  const body = rows.length
+    ? rows
+        .map((row) => {
+          const cobrado = montoCobrado(row);
+          const saldo = saldoPendiente(row);
+          return `<tr>
+            <td>${esc(row.fecha_entrega)}</td>
+            <td>${esc(row.cliente_nombre)}</td>
+            <td>${formatMoney(row.total)}</td>
+            <td>${formatMoney(cobrado)}</td>
+            <td>${formatMoney(saldo)}</td>
+            <td>${renderCeldaPagoReporte(row)}</td>
+            <td><span class="badge badge-${row.estado}">${esc(row.estado)}</span></td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td colspan="7" class="empty">No hay ordenes activas en este rango.</td></tr>`;
+
+  return `
+    <h3 class="report-section-title">Ordenes pendientes de cobro</h3>
+    <p class="hint report-section-hint">Incluye ordenes activas del periodo (sin canceladas). Los totales superiores no suman canceladas.</p>
+    <div class="table-wrap report-table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Pago</th><th>Gestion</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderTablaReporteCanceladas(rows) {
+  const body = rows.length
+    ? rows
+        .map(
+          (row) => `<tr>
+            <td>${esc(row.fecha_entrega)}</td>
+            <td>${esc(row.cliente_nombre)}</td>
+            <td>${formatMoney(row.total)}</td>
+            <td><span class="badge badge-cancelada">cancelada</span></td>
+          </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="4" class="empty">No hay ordenes canceladas en este rango.</td></tr>`;
+
+  return `
+    <h3 class="report-section-title">Ordenes canceladas</h3>
+    <p class="hint report-section-hint">Solo referencia; no aplican cobros ni chips de pago.</p>
+    <div class="table-wrap report-table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Gestion</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
 }
 
 function errorCard(msg) {

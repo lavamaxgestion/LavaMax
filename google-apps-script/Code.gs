@@ -275,12 +275,15 @@ function buildReport(desde, hasta) {
   var pagos_transferencia = 0;
   var pagos_parciales = 0;
 
-  filtered.forEach(function (r) {
+  var detalle = filtered.filter(function (r) {
+    return r.estado !== "cancelada";
+  });
+  var detalle_canceladas = filtered.filter(function (r) {
+    return r.estado === "cancelada";
+  });
+
+  detalle.forEach(function (r) {
     if (r.estado === "entregada") entregadas++;
-    if (r.estado === "cancelada") {
-      canceladas++;
-      return;
-    }
 
     var ep = r.estado_pago || "pago pendiente";
     ingresos_cobrados += montoCobrado(r);
@@ -291,6 +294,8 @@ function buildReport(desde, hasta) {
     if (ep === "pago transferencia") pagos_transferencia++;
     if (ep === "pago parcial") pagos_parciales++;
   });
+
+  canceladas = detalle_canceladas.length;
 
   return {
     ingresos_cobrados: ingresos_cobrados,
@@ -303,7 +308,8 @@ function buildReport(desde, hasta) {
     pagos_efectivo: pagos_efectivo,
     pagos_transferencia: pagos_transferencia,
     pagos_parciales: pagos_parciales,
-    detalle: filtered,
+    detalle: detalle,
+    detalle_canceladas: detalle_canceladas,
   };
 }
 
