@@ -3,6 +3,8 @@ import {
   ESTADO_PAGO_DEFAULT,
   pagoBadgeClass,
   normalizeSolicitudPago,
+  debeMostrarBadgePago,
+  normalizarEstadoPago,
 } from "../finanzas.js";
 import {
   formatFechaHoraRecogida,
@@ -148,7 +150,7 @@ function renderList(container, items) {
             <div class="order-card-header">
               <strong>${escapeHtml(item.cliente_nombre)}</strong>
               <span class="badge badge-${item.estado}">${item.estado}</span>
-              <span class="badge ${pagoBadgeClass(item.estado_pago || ESTADO_PAGO_DEFAULT)}">${item.estado_pago || ESTADO_PAGO_DEFAULT}</span>
+              ${renderBadgePago(item)}
               ${urgent ? '<span class="badge badge-urgente">Pronto</span>' : ""}
             </div>
             <div class="order-meta">
@@ -202,6 +204,12 @@ function renderList(container, items) {
     paint();
   });
   paint();
+}
+
+function renderBadgePago(item) {
+  if (!debeMostrarBadgePago(item.estado)) return "";
+  const ep = normalizarEstadoPago(item.estado_pago) || ESTADO_PAGO_DEFAULT;
+  return `<span class="badge ${pagoBadgeClass(ep)}">${escapeHtml(ep)}</span>`;
 }
 
 function renderEditarOrdenLink(item) {

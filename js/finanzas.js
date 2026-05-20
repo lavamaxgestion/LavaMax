@@ -20,6 +20,11 @@ export function pagoBadgeClass(estadoPago) {
   return `badge-${normalizarEstadoPago(estadoPago).replace(/\s+/g, "-")}`;
 }
 
+/** En listados de ordenes: canceladas no muestran chip de pago. */
+export function debeMostrarBadgePago(estadoGestion) {
+  return estadoGestion !== "cancelada";
+}
+
 export function montoCobrado(solicitud) {
   const total = Number(solicitud.total) || 0;
   const ep = normalizarEstadoPago(solicitud.estado_pago);
