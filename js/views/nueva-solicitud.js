@@ -1,9 +1,44 @@
 import { api, formatMoney } from "../api.js";
-import { ESTADO_PAGO_DEFAULT } from "../finanzas.js";
-import { horasFromTarifa } from "../alquiler.js";
+import { ESTADO_PAGO_DEFAULT, normalizeSolicitudPago } from "../finanzas.js";
+import {
+  getHorasAlquiler,
+  horasFromTarifa,
+  normalizeSolicitudAlquiler,
+} from "../alquiler.js";
+import { puedeEditarGestionEnOrdenes } from "../estados.js";
+
+function getEditIdFromHash() {
+  const hash = location.hash.replace("#", "") || "/";
+  const q = hash.indexOf("?");
+  if (q < 0) return null;
+  return new URLSearchParams(hash.slice(q + 1)).get("id");
+}
 
 function lavadoraLabel(l) {
   return `${l.codigo} - ${l.modelo}`;
+}
+
+function escapeAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function periodosFromSolicitud(solicitud, tarifas) {
+  const tarifa = tarifas.find((t) => String(t.id) === String(solicitud.tarifa_id));
+  const horasPorPeriodo = horasFromTarifa(tarifa);
+  return Math.max(1, Math.round(getHorasAlquiler(solicitud) / horasPorPeriodo));
+}
+
+function inventarioParaFormulario(todos, solicitud, isEdit) {
+  const disponibles = (todos || []).filter((i) => i.estado === "disponible");
+  if (!isEdit || !solicitud?.lavadora_id) return disponibles;
+  const asignada = (todos || []).find((i) => String(i.id) === String(solicitud.lavadora_id));
+  if (asignada && !disponibles.some((i) => String(i.id) === String(asignada.id))) {
+    return [asignada, ...disponibles];
+  }
+  return disponibles;
 }
 
 function setupLavadoraAutocomplete(wrap, inventario) {
@@ -133,55 +168,112 @@ function setupLavadoraAutocomplete(wrap, inventario) {
 
   return {
     getSelected: () => selected,
+    setSelected,
   };
 }
 
 export async function renderNuevaSolicitud(container, topbar) {
   topbar.innerHTML = "";
 
+  const editId = getEditIdFromHash();
+  const isEdit = Boolean(editId);
+
   container.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando formulario...</div>`;
 
-  let inventario = [];
+  let inventarioAll = [];
   let tarifas = [];
+  let solicitud = null;
 
   try {
-    const [invRes, tarRes] = await Promise.all([
+    const [invRes, tarRes, solRes] = await Promise.all([
       api.getInventario().catch(() => ({ data: [] })),
       api.getTarifas().catch(() => ({ data: [] })),
+      isEdit ? api.getSolicitudes().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     ]);
-    inventario = (invRes.data || []).filter((i) => i.estado === "disponible");
+    inventarioAll = invRes.data || [];
     tarifas = tarRes.data || [];
-  } catch {
-    /* demo sin API */
+
+    if (isEdit) {
+      solicitud = (solRes.data || [])
+        .map((s) => normalizeSolicitudPago(normalizeSolicitudAlquiler({ ...s })))
+        .find((s) => String(s.id) === String(editId));
+      if (!solicitud) {
+        container.innerHTML = `
+          <div class="card empty">
+            <strong>Solicitud no encontrada</strong>
+            <p>No existe una orden con id "${escapeAttr(editId)}".</p>
+            <p><a href="#/" class="btn btn-primary">Volver a ordenes</a></p>
+          </div>`;
+        return;
+      }
+      if (!puedeEditarGestionEnOrdenes(solicitud.estado)) {
+        container.innerHTML = `
+          <div class="card empty">
+            <strong>No se puede editar esta solicitud</strong>
+            <p>Solo se editan ordenes en estado <em>pendiente</em> o <em>confirmada</em>.</p>
+            <p>Estado actual: <strong>${escapeAttr(solicitud.estado)}</strong></p>
+            <p><a href="#/" class="btn btn-primary">Volver a ordenes</a></p>
+          </div>`;
+        return;
+      }
+    }
+  } catch (err) {
+    container.innerHTML = `
+      <div class="card empty">
+        <strong>Error al cargar el formulario</strong>
+        <p>${escapeAttr(err.message)}</p>
+        <p><a href="#/" class="btn btn-ghost">Volver a ordenes</a></p>
+      </div>`;
+    return;
   }
 
+  const inventario = inventarioParaFormulario(inventarioAll, solicitud, isEdit);
   const hoy = new Date().toISOString().slice(0, 10);
   const tarifaDefault = tarifas[0];
+  const periodos = solicitud ? periodosFromSolicitud(solicitud, tarifas) : 1;
+
+  const v = {
+    cliente_nombre: solicitud?.cliente_nombre || "",
+    cliente_telefono: solicitud?.cliente_telefono || "",
+    direccion: solicitud?.direccion || "",
+    fecha_entrega: solicitud?.fecha_entrega || hoy,
+    hora_entrega: solicitud?.hora_entrega || "08:00",
+    dias_alquiler: periodos,
+    tarifa_id: solicitud?.tarifa_id || tarifaDefault?.id || "",
+    notas: solicitud?.notas || "",
+    total: solicitud?.total ?? "",
+  };
 
   container.innerHTML = `
     <div class="card">
-      <h2 style="margin:0 0 1rem">Registrar solicitud de alquiler</h2>
+      <h2 style="margin:0 0 0.35rem">${isEdit ? "Editar solicitud" : "Registrar solicitud de alquiler"}</h2>
+      ${
+        isEdit
+          ? `<p class="hint" style="margin:0 0 1rem">Orden <strong>${escapeAttr(solicitud.estado)}</strong> · los cambios de entrega o recogida se hacen en Entregas o Pagos.</p>`
+          : ""
+      }
       <form id="form-solicitud">
+        ${isEdit ? `<input type="hidden" name="id" id="solicitud-id" value="${escapeAttr(editId)}" />` : ""}
         <div class="form-grid">
           <label class="field">
             <span>Cliente *</span>
-            <input name="cliente_nombre" required placeholder="Nombre completo" />
+            <input name="cliente_nombre" required placeholder="Nombre completo" value="${escapeAttr(v.cliente_nombre)}" />
           </label>
           <label class="field">
             <span>Telefono *</span>
-            <input name="cliente_telefono" required type="tel" placeholder="300 123 4567" />
+            <input name="cliente_telefono" required type="tel" placeholder="300 123 4567" value="${escapeAttr(v.cliente_telefono)}" />
           </label>
           <label class="field field-full">
             <span>Direccion de entrega *</span>
-            <input name="direccion" required placeholder="Barrio, calle, referencia" />
+            <input name="direccion" required placeholder="Barrio, calle, referencia" value="${escapeAttr(v.direccion)}" />
           </label>
           <label class="field">
             <span>Fecha de entrega *</span>
-            <input name="fecha_entrega" type="date" required value="${hoy}" min="${hoy}" />
+            <input name="fecha_entrega" type="date" required value="${escapeAttr(v.fecha_entrega)}" />
           </label>
           <label class="field">
             <span>Hora de entrega *</span>
-            <input name="hora_entrega" type="time" required value="08:00" />
+            <input name="hora_entrega" type="time" required value="${escapeAttr(v.hora_entrega)}" />
           </label>
           <label class="field">
             <span>Lavadora</span>
@@ -196,15 +288,15 @@ export async function renderNuevaSolicitud(container, topbar) {
                 aria-expanded="false"
                 aria-controls="lavadora-listbox"
               />
-              <input type="hidden" name="lavadora_id" id="lavadora_id" value="" />
-              <input type="hidden" name="lavadora_codigo" id="lavadora_codigo" value="" />
+              <input type="hidden" name="lavadora_id" id="lavadora_id" value="${escapeAttr(solicitud?.lavadora_id || "")}" />
+              <input type="hidden" name="lavadora_codigo" id="lavadora_codigo" value="${escapeAttr(solicitud?.lavadora_codigo || "")}" />
               <ul id="lavadora-listbox" class="autocomplete-list" role="listbox" hidden></ul>
             </div>
             <small class="field-hint">Opcional. Dejar vacio para asignar despues.</small>
           </label>
           <label class="field">
             <span>Periodos de alquiler *</span>
-            <input name="dias_alquiler" type="number" min="1" value="1" required id="dias" />
+            <input name="dias_alquiler" type="number" min="1" value="${v.dias_alquiler}" required id="dias" />
             <small class="field-hint">Cada periodo usa la duracion de la tarifa (12h o 24h).</small>
           </label>
           <label class="field">
@@ -212,9 +304,10 @@ export async function renderNuevaSolicitud(container, topbar) {
             <select name="tarifa_id" id="tarifa_id">
               ${tarifas.length
                 ? tarifas
-                    .map((t, i) => {
+                    .map((t) => {
                       const horas = horasFromTarifa(t);
-                      return `<option value="${t.id}" data-precio="${t.precio_dia}" data-horas="${horas}" ${i === 0 ? "selected" : ""}>${t.nombre} · ${horas}h (${formatMoney(t.precio_dia)})</option>`;
+                      const sel = String(t.id) === String(v.tarifa_id) ? "selected" : "";
+                      return `<option value="${t.id}" data-precio="${t.precio_dia}" data-horas="${horas}" ${sel}>${t.nombre} · ${horas}h (${formatMoney(t.precio_dia)})</option>`;
                     })
                     .join("")
                 : `<option value="" data-precio="25000" data-horas="24">Tarifa estandar 24h</option>`}
@@ -227,16 +320,16 @@ export async function renderNuevaSolicitud(container, topbar) {
           </label>
           <label class="field">
             <span>Total estimado</span>
-            <input name="total" id="total" type="number" readonly />
+            <input name="total" id="total" type="number" readonly value="${escapeAttr(v.total)}" />
           </label>
           <label class="field field-full">
             <span>Notas</span>
-            <textarea name="notas" rows="2" placeholder="Instrucciones especiales"></textarea>
+            <textarea name="notas" rows="2" placeholder="Instrucciones especiales">${escapeAttr(v.notas)}</textarea>
           </label>
         </div>
         <div class="form-actions">
           <a href="#/" class="btn btn-ghost">Cancelar</a>
-          <button type="submit" class="btn btn-primary">Guardar solicitud</button>
+          <button type="submit" class="btn btn-primary">${isEdit ? "Guardar cambios" : "Guardar solicitud"}</button>
         </div>
       </form>
     </div>
@@ -267,7 +360,18 @@ export async function renderNuevaSolicitud(container, topbar) {
   tarifaEl.addEventListener("change", calcTotal);
   calcTotal();
 
-  setupLavadoraAutocomplete(document.getElementById("lavadora-autocomplete"), inventario);
+  const lavadoraAc = setupLavadoraAutocomplete(
+    document.getElementById("lavadora-autocomplete"),
+    inventario
+  );
+
+  if (solicitud?.lavadora_id) {
+    const lav = inventario.find((l) => String(l.id) === String(solicitud.lavadora_id));
+    if (lav) lavadoraAc.setSelected(lav);
+    else if (solicitud.lavadora_codigo) {
+      document.getElementById("lavadora_search").value = solicitud.lavadora_codigo;
+    }
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -285,14 +389,26 @@ export async function renderNuevaSolicitud(container, topbar) {
       tarifa_id: fd.get("tarifa_id") || "",
       total: Number(fd.get("total")),
       notas: fd.get("notas") || "",
-      estado: "pendiente",
-      estado_pago: ESTADO_PAGO_DEFAULT,
-      monto_pagado: "",
     };
 
     try {
-      await api.createSolicitud(payload);
-      window.showToast?.("Solicitud registrada correctamente", "success");
+      if (isEdit) {
+        await api.updateSolicitud(editId, {
+          ...payload,
+          estado: solicitud.estado,
+          estado_pago: solicitud.estado_pago || ESTADO_PAGO_DEFAULT,
+          monto_pagado: solicitud.monto_pagado ?? "",
+        });
+        window.showToast?.("Solicitud actualizada", "success");
+      } else {
+        await api.createSolicitud({
+          ...payload,
+          estado: "pendiente",
+          estado_pago: ESTADO_PAGO_DEFAULT,
+          monto_pagado: "",
+        });
+        window.showToast?.("Solicitud registrada correctamente", "success");
+      }
       location.hash = "#/";
     } catch (err) {
       window.showToast?.(err.message, "error");

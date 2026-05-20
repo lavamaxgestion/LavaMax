@@ -159,6 +159,7 @@ function renderList(container, items) {
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}
           </div>
           <div class="order-card-actions">
+            ${renderEditarOrdenLink(item)}
             ${renderEstadoOrdenesSelect(item)}
           </div>
         </article>`;
@@ -200,6 +201,12 @@ function renderList(container, items) {
     paint();
   });
   paint();
+}
+
+function renderEditarOrdenLink(item) {
+  if (!puedeEditarGestionEnOrdenes(item.estado)) return "";
+  const id = encodeURIComponent(item.id);
+  return `<a href="#/nueva?id=${id}" class="btn btn-ghost btn-sm">Editar</a>`;
 }
 
 function renderEstadoOrdenesSelect(item) {

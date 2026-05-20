@@ -58,7 +58,7 @@ Hay tres roles: `admin`, `operador` y `repartidor`. Cada uno ve solo las vistas 
 
 #### Operador (`operador`)
 
-- **Órdenes**: ver solicitudes ordenadas por proximidad de entrega; marcar como `pendiente`, `confirmada` o `cancelada` (solo en esos estados editables).
+- **Órdenes**: ver solicitudes ordenadas por proximidad de entrega; marcar como `pendiente`, `confirmada` o `cancelada` (solo en esos estados editables). Botón **Editar** abre el mismo formulario de nueva solicitud con los datos cargados (`#/nueva?id=...`).
 - **Nueva solicitud**: registrar clientes, dirección, fecha/hora de entrega, lavadora disponible y tarifa.
 - **Pagos**: ver órdenes en ruta (`confirmada` o `entregada`); actualizar estado de pago y, si aplica, marcar `entregada` → `recogida` al cerrar la recogida.
 - No ve **Entregas hoy** ni el módulo de administración.
@@ -116,7 +116,7 @@ La app maneja **dos ejes independientes**:
 
 | Vista | Estados permitidos en el selector |
 |-------|-----------------------------------|
-| **Órdenes** | `pendiente`, `confirmada`, `cancelada` (solo si la orden está en `pendiente` o `confirmada`; si ya está `entregada`, `recogida` o `cancelada` solo se muestra el badge) |
+| **Órdenes** | `pendiente`, `confirmada`, `cancelada` (solo si la orden está en `pendiente` o `confirmada`; si ya está `entregada`, `recogida` o `cancelada` solo se muestra el badge). **Editar** datos del cliente, entrega, tarifa y lavadora (misma restricción de estados) |
 | **Entregas hoy** | `pendiente`, `confirmada`, `entregada` |
 | **Pagos** | Gestión: solo `entregada` → `recogida` (en el modal de confirmación) |
 

@@ -67,6 +67,13 @@ function getRoute() {
   return hash.split("?")[0];
 }
 
+function getHashParams() {
+  const hash = location.hash.replace("#", "") || "/";
+  const q = hash.indexOf("?");
+  if (q < 0) return new URLSearchParams();
+  return new URLSearchParams(hash.slice(q + 1));
+}
+
 function setActiveNav(route) {
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.toggle("active", link.dataset.route === route);
@@ -131,7 +138,8 @@ async function navigate() {
     return;
   }
   const def = ROUTES[route] || ROUTES["/"];
-  pageTitle.textContent = def.title;
+  const editId = route === "/nueva" ? getHashParams().get("id") : null;
+  pageTitle.textContent = editId ? "Editar solicitud" : def.title;
   setActiveNav(route in ROUTES ? route : "/");
   topbarActions.innerHTML = "";
   content.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando...</div>`;
