@@ -9,8 +9,8 @@ Aplicación web para gestionar solicitudes de alquiler de lavadoras. Frontend en
 | Área | Descripción |
 |------|-------------|
 | **Autenticación** | Ingreso con PIN por usuario; menú y rutas filtrados por rol |
-| **Órdenes** | Listado, filtros y cambio de gestión (`pendiente` / `confirmada` / `cancelada`) |
-| **Nueva solicitud** | Alta de clientes, entrega, lavadora (autocompletado) y tarifa |
+| **Órdenes** | Listado del día actual por defecto, filtros, edición y cambio de gestión (`pendiente` / `confirmada` / `cancelada`) |
+| **Nueva solicitud** | Alta o edición de solicitudes (mismo formulario); lavadora con autocompletado y tarifa |
 | **Entregas hoy** | Órdenes con entrega programada para el día actual |
 | **Pagos** | Cobros y cierre de gestión al recoger (`entregada` → `recogida`) |
 | **Administración** | Inventario, tarifas, usuarios (PIN/rol), reportes financieros |
@@ -48,8 +48,8 @@ Hay tres roles: `admin`, `operador` y `repartidor`. Cada uno ve solo las vistas 
 
 #### Administrador (`admin`)
 
-- Revisar y filtrar todas las órdenes; confirmar o cancelar solicitudes nuevas.
-- Crear solicitudes desde **Nueva solicitud**.
+- Revisar y filtrar órdenes (por defecto las de hoy); confirmar, cancelar o **editar** solicitudes en `pendiente` / `confirmada`.
+- Crear solicitudes desde **Nueva solicitud** o **Editar** en Órdenes.
 - Supervisar entregas del día y el flujo de cobros en **Pagos**.
 - Gestionar inventario de lavadoras, tarifas (12 h / 24 h) y usuarios con PIN y rol.
 - Consultar reportes financieros por rango de fechas (ingresos cobrados vs. por cobrar).
@@ -58,7 +58,7 @@ Hay tres roles: `admin`, `operador` y `repartidor`. Cada uno ve solo las vistas 
 
 #### Operador (`operador`)
 
-- **Órdenes**: ver solicitudes ordenadas por proximidad de entrega; marcar como `pendiente`, `confirmada` o `cancelada` (solo en esos estados editables). Botón **Editar** abre el mismo formulario de nueva solicitud con los datos cargados (`#/nueva?id=...`).
+- **Órdenes**: por defecto muestra las del **día actual**; con filtros puede ver otros días o todas las fechas (**Limpiar fecha**). Orden por proximidad de entrega; estados `pendiente` / `confirmada` / `cancelada` y botón **Editar** (`#/nueva?id=...`) solo en órdenes aún no entregadas.
 - **Nueva solicitud**: registrar clientes, dirección, fecha/hora de entrega, lavadora disponible y tarifa.
 - **Pagos**: ver órdenes en ruta (`confirmada` o `entregada`); actualizar estado de pago y, si aplica, marcar `entregada` → `recogida` al cerrar la recogida.
 - No ve **Entregas hoy** ni el módulo de administración.
@@ -92,9 +92,56 @@ flowchart LR
   E --> F
 ```
 
-1. **Operador** crea la solicitud y la deja en `pendiente` o `confirmada`.
+1. **Operador** crea la solicitud y la deja en `pendiente` o `confirmada` (puede corregir datos con **Editar** mientras siga en esos estados).
 2. **Repartidor** (o admin) en **Entregas hoy** marca `entregada` al instalar la lavadora.
 3. **Operador o repartidor** en **Pagos** registra el pago y, al recoger, pasa a `recogida`.
+
+---
+
+## Módulo Órdenes
+
+Vista principal para **admin** y **operador** (`#/`).
+
+### Listado por defecto
+
+Al entrar, el filtro **Fecha** viene preseleccionado con el **día en curso** y el listado muestra solo órdenes cuya **fecha de entrega** coincide con hoy (ordenadas por proximidad de entrega; las que vencen en menos de 24 h llevan badge **Pronto**).
+
+### Filtros
+
+| Filtro | Uso |
+|--------|-----|
+| **Estado** | Todos o un estado de gestión concreto |
+| **Filtrar por fecha** | `Fecha de entrega` (por defecto) o `Fecha de recogida` |
+| **Fecha** | Día concreto; viene con hoy al cargar. Cambia la fecha para ver días anteriores o posteriores |
+| **Buscar cliente** | Nombre o teléfono |
+| **Limpiar fecha** | Quita el filtro de fecha y muestra órdenes de **todas** las fechas |
+
+Los contadores superiores (**Pendientes de entregar**, **Entregas hoy**, **Recogidas**) se calculan sobre el total de órdenes cargadas, no solo sobre el día filtrado en la lista.
+
+### Acciones por orden
+
+| Acción | Cuándo |
+|--------|--------|
+| **Cambiar estado** (selector) | Solo si la orden está en `pendiente` o `confirmada` → `pendiente`, `confirmada` o `cancelada` |
+| **Editar** | Misma condición: abre el formulario en `#/nueva?id=<id>` |
+| Badge de estado | Si está `entregada`, `recogida` o `cancelada`: sin selector; gestionar en **Entregas** o **Pagos** |
+
+---
+
+## Nueva solicitud y edición
+
+| Modo | Ruta | Comportamiento |
+|------|------|----------------|
+| **Crear** | `#/nueva` | Formulario vacío; al guardar crea orden en `pendiente` y `pago pendiente` |
+| **Editar** | `#/nueva?id=<id>` | Carga la orden desde Órdenes; al guardar actualiza sin cambiar `estado`, `estado_pago` ni `monto_pagado` |
+
+**Campos editables:** cliente, teléfono, dirección, fecha/hora de entrega, lavadora, periodos, tarifa, total y notas.
+
+**Restricciones de edición:** solo órdenes en `pendiente` o `confirmada`. Si la orden ya fue entregada, recogida o cancelada, la app muestra un aviso y no permite editar.
+
+**Lavadora en edición:** si la orden tiene lavadora asignada aunque no esté `disponible` en inventario, sigue apareciendo en el autocompletado para no perder la asignación.
+
+El título de la página pasa a **Editar solicitud** cuando hay `id` en la URL.
 
 ---
 
@@ -291,8 +338,9 @@ gestion-lavadoras/
 
 | Hash | Vista |
 |------|-------|
-| `#/` | Órdenes de solicitud |
+| `#/` | Órdenes de solicitud (filtro fecha = hoy por defecto) |
 | `#/nueva` | Nueva solicitud |
+| `#/nueva?id=<id>` | Editar solicitud existente |
 | `#/entregas` | Entregas del día |
 | `#/pagos` | Estado de pagos |
 | `#/admin/inventario` | Inventario |
@@ -328,6 +376,8 @@ Para entornos más exigentes: restringir el despliegue del Web App, usar HTTPS e
 | Página en blanco en Pages | Archivo `.nojekyll` en la raíz del sitio |
 | Módulos no cargan en local | `npx serve .` o `python3 -m http.server` |
 | Órdenes antiguas sin PIN | En modo prueba: **Restablecer** o agregar columna `pin` y valores en Usuarios |
+| No veo órdenes de ayer al abrir Órdenes | Es normal: por defecto solo se muestra **hoy**. Cambia la fecha o **Limpiar fecha** |
+| No aparece Editar en una orden | Solo en `pendiente` o `confirmada`; si ya está entregada usa Entregas/Pagos |
 
 ---
 

@@ -15,6 +15,7 @@ import {
   opcionesGestionOrdenes,
   puedeEditarGestionEnOrdenes,
   ESTADOS_GESTION_ORDENES,
+  hoyISO,
 } from "../estados.js";
 
 export async function renderOrdenes(container, topbar) {
@@ -42,7 +43,7 @@ export async function renderOrdenes(container, topbar) {
 }
 
 function renderList(container, items) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
   const pendientes = items.filter(isOrdenActiva);
   const entregasHoy = items.filter((i) => i.fecha_entrega === hoy && isOrdenActiva(i)).length;
   const recogidas = items.filter((i) => i.estado === "recogida").length;
@@ -81,7 +82,7 @@ function renderList(container, items) {
         </label>
         <label class="field">
           <span>Fecha</span>
-          <input type="date" id="filter-fecha" />
+          <input type="date" id="filter-fecha" value="${hoy}" />
         </label>
         <label class="field">
           <span>Buscar cliente</span>
