@@ -1,12 +1,14 @@
 import { api, formatMoney } from "../api.js";
 import {
   ESTADO_PAGO_DEFAULT,
+  ESTADOS_PAGO,
   montoCobrado,
   saldoPendiente,
   pagoBadgeClass,
   debeMostrarBadgePago,
   normalizarEstadoPago,
 } from "../finanzas.js";
+import { ESTADOS_GESTION } from "../estados.js";
 
 function esc(s) {
   const d = document.createElement("div");
@@ -139,19 +141,7 @@ export async function renderReportes(container) {
     el.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
     try {
       const { data } = await api.getReportes(desde, hasta);
-      const r = data || {};
-      el.innerHTML = `
-        <div class="stats-grid" style="margin-top:1rem">
-          <div class="stat"><div class="stat-label">Ingresos cobrados</div><div class="stat-value stat-value-ingresos">${formatMoney(r.ingresos_cobrados ?? r.ingresos)}</div></div>
-          <div class="stat"><div class="stat-label">Por cobrar</div><div class="stat-value stat-value-por-cobrar">${formatMoney(r.por_cobrar ?? 0)}</div></div>
-          <div class="stat"><div class="stat-label">Pend. de pago</div><div class="stat-value">${r.pendientes_pago ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Efectivo</div><div class="stat-value">${r.pagos_efectivo ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${r.pagos_transferencia ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Parciales</div><div class="stat-value">${r.pagos_parciales ?? 0}</div></div>
-          <div class="stat"><div class="stat-label">Canceladas</div><div class="stat-value">${r.canceladas ?? 0}</div></div>
-        </div>
-        ${renderTablaReporteCobros(r.detalle || [])}
-        ${renderTablaReporteCanceladas(r.detalle_canceladas || [])}`;
+      mountReportesTabs(el, data || {}, { desde, hasta });
     } catch (e) {
       el.innerHTML = errorCard(e.message);
     }
@@ -161,65 +151,237 @@ export async function renderReportes(container) {
   load();
 }
 
+function mountReportesTabs(container, report, rango) {
+  const cobros = report.detalle || [];
+  const canceladas = report.detalle_canceladas || [];
+  const nCanceladas = canceladas.length;
+
+  container.innerHTML = `
+    <nav class="report-tabs" role="tablist" aria-label="Tipo de reporte">
+      <button type="button" class="report-tab active" role="tab" aria-selected="true" data-tab="cobros" id="rep-tab-cobros">
+        Cobros y pagos
+      </button>
+      <button type="button" class="report-tab" role="tab" aria-selected="false" data-tab="canceladas" id="rep-tab-canceladas">
+        Canceladas <span class="report-tab-count">${nCanceladas}</span>
+      </button>
+    </nav>
+    <p class="hint report-rango-hint">Periodo: ${esc(rango.desde)} — ${esc(rango.hasta)}</p>
+    <div id="rep-panel-cobros" class="report-panel" role="tabpanel" aria-labelledby="rep-tab-cobros"></div>
+    <div id="rep-panel-canceladas" class="report-panel" role="tabpanel" aria-labelledby="rep-tab-canceladas" hidden></div>
+  `;
+
+  setupReportTabSwitch(container);
+  mountPanelCobros(container.querySelector("#rep-panel-cobros"), report, cobros);
+  mountPanelCanceladas(container.querySelector("#rep-panel-canceladas"), canceladas);
+}
+
+function setupReportTabSwitch(container) {
+  const tabs = container.querySelectorAll(".report-tab");
+  const panels = {
+    cobros: container.querySelector("#rep-panel-cobros"),
+    canceladas: container.querySelector("#rep-panel-canceladas"),
+  };
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.tab;
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      Object.entries(panels).forEach(([key, panel]) => {
+        if (panel) panel.hidden = key !== id;
+      });
+    });
+  });
+}
+
+function mountPanelCobros(panel, report, rows) {
+  panel.innerHTML = `
+    <div class="stats-grid report-stats">
+      <div class="stat"><div class="stat-label">Ingresos cobrados</div><div class="stat-value stat-value-ingresos" id="rep-stat-ingresos">${formatMoney(report.ingresos_cobrados ?? report.ingresos)}</div></div>
+      <div class="stat"><div class="stat-label">Por cobrar</div><div class="stat-value stat-value-por-cobrar" id="rep-stat-por-cobrar">${formatMoney(report.por_cobrar ?? 0)}</div></div>
+      <div class="stat"><div class="stat-label">Pend. de pago</div><div class="stat-value" id="rep-stat-pend-pago">${report.pendientes_pago ?? 0}</div></div>
+      <div class="stat"><div class="stat-label">Efectivo</div><div class="stat-value">${report.pagos_efectivo ?? 0}</div></div>
+      <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${report.pagos_transferencia ?? 0}</div></div>
+      <div class="stat"><div class="stat-label">Parciales</div><div class="stat-value">${report.pagos_parciales ?? 0}</div></div>
+    </div>
+    <div class="filters report-filters">
+      <label class="field">
+        <span>Estado de pago</span>
+        <select id="rep-filter-pago">
+          <option value="">Todos</option>
+          ${ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("")}
+        </select>
+      </label>
+      <label class="field">
+        <span>Gestion</span>
+        <select id="rep-filter-gestion">
+          <option value="">Todos</option>
+          ${ESTADOS_GESTION.filter((e) => e !== "cancelada")
+            .map((e) => `<option value="${e}">${e}</option>`)
+            .join("")}
+        </select>
+      </label>
+      <label class="field">
+        <span>Buscar cliente</span>
+        <input type="search" id="rep-filter-buscar" placeholder="Nombre o telefono" />
+      </label>
+    </div>
+    <div class="table-wrap report-table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Pago</th><th>Gestion</th></tr></thead>
+        <tbody id="rep-tbody-cobros"></tbody>
+      </table>
+    </div>
+  `;
+
+  const tbody = panel.querySelector("#rep-tbody-cobros");
+  const filterPago = panel.querySelector("#rep-filter-pago");
+  const filterGestion = panel.querySelector("#rep-filter-gestion");
+  const filterBuscar = panel.querySelector("#rep-filter-buscar");
+
+  function paintCobros() {
+    const filtered = filtrarFilasReporte(rows, {
+      estadoPago: filterPago.value,
+      estadoGestion: filterGestion.value,
+      buscar: filterBuscar.value,
+    });
+    tbody.innerHTML = renderFilasTablaCobros(filtered);
+    actualizarStatsCobrosFiltradas(panel, filtered);
+  }
+
+  filterPago.addEventListener("change", paintCobros);
+  filterGestion.addEventListener("change", paintCobros);
+  filterBuscar.addEventListener("input", paintCobros);
+  paintCobros();
+}
+
+function mountPanelCanceladas(panel, rows) {
+  panel.innerHTML = `
+    <div class="stats-grid report-stats" id="rep-stats-canceladas"></div>
+    <div class="filters report-filters">
+      <label class="field">
+        <span>Buscar cliente</span>
+        <input type="search" id="rep-filter-cancel-buscar" placeholder="Nombre o telefono" />
+      </label>
+    </div>
+    <div class="table-wrap report-table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Telefono</th><th>Total</th><th>Gestion</th></tr></thead>
+        <tbody id="rep-tbody-canceladas"></tbody>
+      </table>
+    </div>
+  `;
+
+  const tbody = panel.querySelector("#rep-tbody-canceladas");
+  const statsEl = panel.querySelector("#rep-stats-canceladas");
+  const filterBuscar = panel.querySelector("#rep-filter-cancel-buscar");
+
+  function paintCanceladas() {
+    const filtered = filtrarFilasReporte(rows, {
+      buscar: filterBuscar.value,
+    });
+    statsEl.innerHTML = renderStatsCanceladas(filtered, rows.length);
+    tbody.innerHTML = renderFilasTablaCanceladas(filtered);
+  }
+
+  filterBuscar.addEventListener("input", paintCanceladas);
+  paintCanceladas();
+}
+
+function filtrarFilasReporte(rows, { estadoPago, estadoGestion, buscar }) {
+  let f = rows;
+  if (estadoPago) {
+    f = f.filter(
+      (r) => (normalizarEstadoPago(r.estado_pago) || ESTADO_PAGO_DEFAULT) === estadoPago
+    );
+  }
+  if (estadoGestion) {
+    f = f.filter((r) => r.estado === estadoGestion);
+  }
+  const q = (buscar || "").trim().toLowerCase();
+  if (q) {
+    f = f.filter(
+      (r) =>
+        (r.cliente_nombre || "").toLowerCase().includes(q) ||
+        (r.cliente_telefono || "").includes(q)
+    );
+  }
+  return f;
+}
+
+function actualizarStatsCobrosFiltradas(panel, filtered) {
+  let ingresos = 0;
+  let porCobrar = 0;
+  let pendientes = 0;
+  filtered.forEach((r) => {
+    ingresos += montoCobrado(r);
+    porCobrar += saldoPendiente(r);
+    if ((normalizarEstadoPago(r.estado_pago) || ESTADO_PAGO_DEFAULT) === ESTADO_PAGO_DEFAULT) {
+      pendientes++;
+    }
+  });
+  const elIng = panel.querySelector("#rep-stat-ingresos");
+  const elPor = panel.querySelector("#rep-stat-por-cobrar");
+  const elPend = panel.querySelector("#rep-stat-pend-pago");
+  if (elIng) elIng.textContent = formatMoney(ingresos);
+  if (elPor) elPor.textContent = formatMoney(porCobrar);
+  if (elPend) elPend.textContent = String(pendientes);
+}
+
+function renderStatsCanceladas(filtered, totalEnRango) {
+  const valor = filtered.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  return `
+    <div class="stat"><div class="stat-label">Canceladas (filtradas)</div><div class="stat-value">${filtered.length}</div></div>
+    <div class="stat"><div class="stat-label">Valor total filtrado</div><div class="stat-value">${formatMoney(valor)}</div></div>
+    <div class="stat"><div class="stat-label">Total en periodo</div><div class="stat-value">${totalEnRango}</div></div>
+  `;
+}
+
 function renderCeldaPagoReporte(row) {
   if (!debeMostrarBadgePago(row.estado)) return "—";
   const ep = normalizarEstadoPago(row.estado_pago) || ESTADO_PAGO_DEFAULT;
   return `<span class="badge ${pagoBadgeClass(ep)}">${esc(ep)}</span>`;
 }
 
-function renderTablaReporteCobros(rows) {
-  const body = rows.length
-    ? rows
-        .map((row) => {
-          const cobrado = montoCobrado(row);
-          const saldo = saldoPendiente(row);
-          return `<tr>
-            <td>${esc(row.fecha_entrega)}</td>
-            <td>${esc(row.cliente_nombre)}</td>
-            <td>${formatMoney(row.total)}</td>
-            <td>${formatMoney(cobrado)}</td>
-            <td>${formatMoney(saldo)}</td>
-            <td>${renderCeldaPagoReporte(row)}</td>
-            <td><span class="badge badge-${row.estado}">${esc(row.estado)}</span></td>
-          </tr>`;
-        })
-        .join("")
-    : `<tr><td colspan="7" class="empty">No hay ordenes activas en este rango.</td></tr>`;
-
-  return `
-    <h3 class="report-section-title">Ordenes pendientes de cobro</h3>
-    <p class="hint report-section-hint">Incluye ordenes activas del periodo (sin canceladas). Los totales superiores no suman canceladas.</p>
-    <div class="table-wrap report-table-wrap">
-      <table>
-        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Pago</th><th>Gestion</th></tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>`;
+function renderFilasTablaCobros(rows) {
+  if (!rows.length) {
+    return `<tr><td colspan="7" class="empty">No hay ordenes con esos filtros.</td></tr>`;
+  }
+  return rows
+    .map((row) => {
+      const cobrado = montoCobrado(row);
+      const saldo = saldoPendiente(row);
+      return `<tr>
+        <td>${esc(row.fecha_entrega)}</td>
+        <td>${esc(row.cliente_nombre)}</td>
+        <td>${formatMoney(row.total)}</td>
+        <td>${formatMoney(cobrado)}</td>
+        <td>${formatMoney(saldo)}</td>
+        <td>${renderCeldaPagoReporte(row)}</td>
+        <td><span class="badge badge-${row.estado}">${esc(row.estado)}</span></td>
+      </tr>`;
+    })
+    .join("");
 }
 
-function renderTablaReporteCanceladas(rows) {
-  const body = rows.length
-    ? rows
-        .map(
-          (row) => `<tr>
-            <td>${esc(row.fecha_entrega)}</td>
-            <td>${esc(row.cliente_nombre)}</td>
-            <td>${formatMoney(row.total)}</td>
-            <td><span class="badge badge-cancelada">cancelada</span></td>
-          </tr>`
-        )
-        .join("")
-    : `<tr><td colspan="4" class="empty">No hay ordenes canceladas en este rango.</td></tr>`;
-
-  return `
-    <h3 class="report-section-title">Ordenes canceladas</h3>
-    <p class="hint report-section-hint">Solo referencia; no aplican cobros ni chips de pago.</p>
-    <div class="table-wrap report-table-wrap">
-      <table>
-        <thead><tr><th>Fecha</th><th>Cliente</th><th>Total</th><th>Gestion</th></tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>`;
+function renderFilasTablaCanceladas(rows) {
+  if (!rows.length) {
+    return `<tr><td colspan="5" class="empty">No hay ordenes canceladas con esos filtros.</td></tr>`;
+  }
+  return rows
+    .map(
+      (row) => `<tr>
+        <td>${esc(row.fecha_entrega)}</td>
+        <td>${esc(row.cliente_nombre)}</td>
+        <td>${esc(row.cliente_telefono || "-")}</td>
+        <td>${formatMoney(row.total)}</td>
+        <td><span class="badge badge-cancelada">cancelada</span></td>
+      </tr>`
+    )
+    .join("");
 }
 
 function errorCard(msg) {
