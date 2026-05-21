@@ -19,6 +19,7 @@ import {
   ESTADOS_GESTION_ORDENES,
   hoyISO,
 } from "../estados.js";
+import { toFechaISO } from "../sheets-normalize.js";
 
 export async function renderOrdenes(container, topbar) {
   topbar.innerHTML = `
@@ -47,7 +48,9 @@ export async function renderOrdenes(container, topbar) {
 function renderList(container, items) {
   const hoy = hoyISO();
   const pendientes = items.filter(isOrdenActiva);
-  const entregasHoy = items.filter((i) => i.fecha_entrega === hoy && isOrdenActiva(i)).length;
+  const entregasHoy = items.filter(
+    (i) => toFechaISO(i.fecha_entrega) === hoy && isOrdenActiva(i)
+  ).length;
   const recogidas = items.filter((i) => i.estado === "recogida").length;
 
   container.innerHTML = `
@@ -112,7 +115,7 @@ function renderList(container, items) {
       const d = String(recogida.getDate()).padStart(2, "0");
       return `${y}-${m}-${d}` === fecha;
     }
-    return item.fecha_entrega === fecha;
+    return toFechaISO(item.fecha_entrega) === fecha;
   }
 
   function paint() {

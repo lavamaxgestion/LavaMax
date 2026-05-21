@@ -1,4 +1,8 @@
 import { mockRequest } from "./mock-data.js";
+import {
+  normalizeSolicitudesList,
+  normalizeSolicitudFromSheets,
+} from "./sheets-normalize.js";
 
 const STORAGE_KEY = "lavarent_api_url";
 const ADMIN_KEY = "lavarent_admin_key";
@@ -93,6 +97,21 @@ async function request(method, params = {}, body = null) {
   if (!data.ok) {
     throw new Error(data.error || "Error en la solicitud");
   }
+  if (params.resource === "solicitudes" && data.data) {
+    data.data = Array.isArray(data.data)
+      ? normalizeSolicitudesList(data.data)
+      : normalizeSolicitudFromSheets(data.data);
+  }
+  if (params.resource === "reportes" && data.data) {
+    if (Array.isArray(data.data.detalle)) {
+      data.data.detalle = normalizeSolicitudesList(data.data.detalle);
+    }
+    if (Array.isArray(data.data.detalle_canceladas)) {
+      data.data.detalle_canceladas = normalizeSolicitudesList(
+        data.data.detalle_canceladas
+      );
+    }
+  }
   return data;
 }
 
@@ -172,10 +191,22 @@ export const api = {
 
 export function sortByEntrega(items) {
   return [...items].sort((a, b) => {
-    const da = new Date(a.fecha_entrega + "T" + (a.hora_entrega || "00:00"));
-    const db = new Date(b.fecha_entrega + "T" + (b.hora_entrega || "00:00"));
+    const da = new Date(`${toFechaSort(a.fecha_entrega)}T${toHoraSort(a.hora_entrega)}`);
+    const db = new Date(`${toFechaSort(b.fecha_entrega)}T${toHoraSort(b.hora_entrega)}`);
     return da - db;
   });
+}
+
+function toFechaSort(f) {
+  const s = String(f || "");
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s.slice(0, 10) || "1970-01-01";
+}
+
+function toHoraSort(h) {
+  const s = String(h || "");
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : "00:00";
 }
 
 export { sortByRecogida, formatFechaHoraRecogida, formatDuracionAlquiler, isRecogidaVencida } from "./alquiler.js";

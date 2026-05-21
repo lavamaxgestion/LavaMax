@@ -148,6 +148,23 @@ function initHeaders(name, sh) {
   if (row) sh.getRange(1, 1, 1, row.length).setValues([row]);
 }
 
+function serializeCell(header, value) {
+  if (value === null || value === undefined || value === "") return "";
+
+  if (value instanceof Date) {
+    const tz = Session.getScriptTimeZone();
+    if (header === "fecha_entrega" || header === "fecha_solicitud") {
+      return Utilities.formatDate(value, tz, "yyyy-MM-dd");
+    }
+    if (header === "hora_entrega") {
+      return Utilities.formatDate(value, tz, "HH:mm");
+    }
+    return Utilities.formatDate(value, tz, "yyyy-MM-dd HH:mm:ss");
+  }
+
+  return value;
+}
+
 function listRows(sheetName) {
   const sh = getSheet(sheetName);
   const values = sh.getDataRange().getValues();
@@ -156,7 +173,7 @@ function listRows(sheetName) {
   return values.slice(1).map(function (row) {
     const obj = {};
     headers.forEach(function (h, i) {
-      obj[h] = row[i];
+      obj[h] = serializeCell(h, row[i]);
     });
     return obj;
   });

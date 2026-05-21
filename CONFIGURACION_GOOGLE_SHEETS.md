@@ -268,6 +268,8 @@ Abre `http://localhost:8080`.
 | Página en blanco en GitHub Pages | Servir por HTTPS; archivo `.nojekyll` presente |
 | La app sigue en modo prueba | Borra URL en API y vuelve a guardar; o vacía `localStorage` y reconfigura |
 | Columnas desordenadas | Los nombres de la fila 1 deben coincidir exactamente con la tabla de esta guía |
+| API devuelve datos pero Órdenes vacío | El filtro **Fecha** muestra solo el día actual: cambia la fecha o **Limpiar fecha**. Recarga la app (Ctrl+Shift+R) tras actualizar el código |
+| `hora_entrega` rara (1899-12-30) | En Sheets usa formato **Hora** en esa columna; redespliega `Code.gs` con nueva versión |
 
 ---
 
