@@ -311,14 +311,29 @@ function setupPagoDialog() {
   const montoWrap = document.getElementById("dialog-monto-wrap");
   const montoInput = document.getElementById("dialog-monto-pagado");
   const cambiosEl = document.getElementById("dialog-pago-cambios");
+  const submitBtn = document.getElementById("dialog-pago-confirmar");
+  const submitLabel = submitBtn?.textContent || "Confirmar cambios";
 
   if (!dialog || !form) return;
+
+  function resetSubmitBtn() {
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = submitLabel;
+  }
+
+  function setSubmitLoading() {
+    if (!submitBtn) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Guardando...";
+  }
 
   selPago.innerHTML = ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("");
 
   function closeDialog() {
     dialog.close();
     modalContext = null;
+    resetSubmitBtn();
   }
 
   dialog.querySelectorAll("[data-close-pago]").forEach((btn) => {
@@ -364,7 +379,7 @@ function setupPagoDialog() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!modalContext) return;
+    if (!modalContext || submitBtn?.disabled) return;
 
     const { item, snapshot, onSaved, guardar } = modalContext;
     const nuevoGestion = selGestion.value;
@@ -414,8 +429,12 @@ function setupPagoDialog() {
 
     if (!confirm(msg)) return;
 
+    setSubmitLoading();
     const ok = await guardar(item.id, payload, item, "Cambios guardados");
-    if (!ok) return;
+    if (!ok) {
+      resetSubmitBtn();
+      return;
+    }
 
     closeDialog();
     onSaved(payload);
@@ -473,6 +492,12 @@ function fillPagoDialog(item) {
   montoWrap.classList.toggle("hidden", ep !== "pago parcial");
   cambiosEl.hidden = true;
   cambiosEl.textContent = "";
+
+  const submitBtn = document.getElementById("dialog-pago-confirmar");
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Confirmar cambios";
+  }
 }
 
 function escapeHtml(s) {

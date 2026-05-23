@@ -329,13 +329,15 @@ export async function renderNuevaSolicitud(container, topbar) {
         </div>
         <div class="form-actions">
           <a href="#/" class="btn btn-ghost">Cancelar</a>
-          <button type="submit" class="btn btn-primary">${isEdit ? "Guardar cambios" : "Guardar solicitud"}</button>
+          <button type="submit" id="btn-guardar-solicitud" class="btn btn-primary">${isEdit ? "Guardar cambios" : "Guardar solicitud"}</button>
         </div>
       </form>
     </div>
   `;
 
   const form = document.getElementById("form-solicitud");
+  const submitBtn = document.getElementById("btn-guardar-solicitud");
+  const submitLabel = submitBtn?.textContent || "Guardar solicitud";
   const diasEl = document.getElementById("dias");
   const tarifaEl = document.getElementById("tarifa_id");
   const totalEl = document.getElementById("total");
@@ -375,6 +377,13 @@ export async function renderNuevaSolicitud(container, topbar) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (submitBtn?.disabled) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Guardando...";
+    }
+
     const fd = new FormData(form);
     const payload = {
       cliente_nombre: fd.get("cliente_nombre"),
@@ -411,6 +420,10 @@ export async function renderNuevaSolicitud(container, topbar) {
       }
       location.hash = "#/";
     } catch (err) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = submitLabel;
+      }
       window.showToast?.(err.message, "error");
     }
   });

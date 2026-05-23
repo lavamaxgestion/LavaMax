@@ -146,8 +146,22 @@ function setupEntregaDialog() {
   const form = document.getElementById("form-entrega-update");
   const sel = document.getElementById("dialog-entrega-estado");
   const cambiosEl = document.getElementById("dialog-entrega-cambios");
+  const submitBtn = document.getElementById("dialog-entrega-confirmar");
+  const submitLabel = submitBtn?.textContent || "Confirmar cambios";
 
   if (!dialog || !form || !sel) return;
+
+  function resetSubmitBtn() {
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = submitLabel;
+  }
+
+  function setSubmitLoading() {
+    if (!submitBtn) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Guardando...";
+  }
 
   sel.innerHTML = ESTADOS_GESTION_ENTREGA.map(
     (e) => `<option value="${e}">${e}</option>`
@@ -156,6 +170,7 @@ function setupEntregaDialog() {
   function closeDialog() {
     dialog.close();
     entregaModalContext = null;
+    resetSubmitBtn();
   }
 
   dialog.querySelectorAll("[data-close-entrega]").forEach((btn) => {
@@ -176,7 +191,7 @@ function setupEntregaDialog() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!entregaModalContext) return;
+    if (!entregaModalContext || submitBtn?.disabled) return;
 
     const { item, snapshot, onSaved, guardar } = entregaModalContext;
     const nuevoEstado = sel.value;
@@ -194,8 +209,12 @@ function setupEntregaDialog() {
 
     if (!confirm(msg)) return;
 
+    setSubmitLoading();
     const ok = await guardar(item.id, { estado: nuevoEstado }, item);
-    if (!ok) return;
+    if (!ok) {
+      resetSubmitBtn();
+      return;
+    }
 
     closeDialog();
     onSaved();
@@ -225,6 +244,12 @@ function openEntregaDialog(item, items, repaint) {
   sel.value = item.estado || "pendiente";
   cambiosEl.hidden = true;
   cambiosEl.textContent = "";
+
+  const submitBtn = document.getElementById("dialog-entrega-confirmar");
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Confirmar cambios";
+  }
 
   document.getElementById("dialog-entrega-update")?.showModal();
 }
