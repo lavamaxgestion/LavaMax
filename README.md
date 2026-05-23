@@ -233,7 +233,7 @@ Google Sheets (Solicitudes, Inventario, Tarifas, Usuarios)
 | Recurso | Método | Notas |
 |---------|--------|-------|
 | `auth` | GET | Login por `pin` (sin `adminKey`) |
-| `solicitudes` | GET / POST | Crear y actualizar órdenes |
+| `solicitudes` | GET / POST | GET acepta filtros opcionales: `estado`, `fecha_tipo` (`entrega`/`recogida`), `desde`, `hasta`, `buscar`; `stats=1` devuelve contadores sin listar todas las filas |
 | `inventario` | GET / POST | Requiere `adminKey` |
 | `tarifas` | GET / POST | Requiere `adminKey` |
 | `usuarios` | GET / POST | Requiere `adminKey` |

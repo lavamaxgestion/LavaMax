@@ -9,137 +9,119 @@ import {
 import {
   formatFechaHoraRecogida,
   formatDuracionAlquiler,
-  getFechaHoraRecogida,
 } from "../alquiler.js";
 import {
   ESTADOS_GESTION,
-  isOrdenActiva,
   opcionesGestionOrdenes,
   puedeEditarGestionEnOrdenes,
   ESTADOS_GESTION_ORDENES,
   hoyISO,
 } from "../estados.js";
-import { toFechaISO } from "../sheets-normalize.js";
+
+const BUSCAR_DEBOUNCE_MS = 350;
 
 export async function renderOrdenes(container, topbar) {
   topbar.innerHTML = `
     <a href="#/nueva" class="btn btn-primary">+ Nueva solicitud</a>
   `;
 
-  container.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando ordenes...</div>`;
-
-  try {
-    const { data } = await api.getSolicitudes();
-    const items = sortByEntrega((data || []).map(normalizeSolicitudPago));
-    renderList(container, items);
-  } catch (err) {
-    container.innerHTML = `
-      <div class="card empty">
-        <strong>No se pudieron cargar las ordenes</strong>
-        <p>${err.message}</p>
-        <p><button type="button" class="btn btn-primary" id="btn-open-api">Configurar API</button></p>
-      </div>`;
-    document.getElementById("btn-open-api")?.addEventListener("click", () => {
-      document.getElementById("btn-config-api")?.click();
-    });
-  }
-}
-
-function renderList(container, items) {
   const hoy = hoyISO();
-  const pendientes = items.filter(isOrdenActiva);
-  const entregasHoy = items.filter(
-    (i) => toFechaISO(i.fecha_entrega) === hoy && isOrdenActiva(i)
-  ).length;
-  const recogidas = items.filter((i) => i.estado === "recogida").length;
-
-  container.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat">
-        <div class="stat-label">Pendientes de entregar</div>
-        <div class="stat-value">${pendientes.length}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Entregas hoy</div>
-        <div class="stat-value">${entregasHoy}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Recogidas</div>
-        <div class="stat-value">${recogidas}</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="filters">
-        <label class="field">
-          <span>Estado</span>
-          <select id="filter-estado">
-            <option value="">Todos</option>
-            ${ESTADOS_GESTION.map((e) => `<option value="${e}">${e}</option>`).join("")}
-          </select>
-        </label>
-        <label class="field">
-          <span>Filtrar por fecha</span>
-          <select id="filter-fecha-tipo">
-            <option value="entrega">Fecha de entrega</option>
-            <option value="recogida">Fecha de recogida</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Fecha</span>
-          <input type="date" id="filter-fecha" value="${hoy}" />
-        </label>
-        <label class="field">
-          <span>Buscar cliente</span>
-          <input type="search" id="filter-buscar" placeholder="Nombre o telefono" />
-        </label>
-        <button type="button" class="btn btn-ghost btn-sm" id="filter-limpiar-fecha">Limpiar fecha</button>
-      </div>
-      <div id="orders-list"></div>
-    </div>
-  `;
+  container.innerHTML = buildShell(hoy);
 
   const listEl = document.getElementById("orders-list");
+  const statsEl = document.getElementById("orders-stats");
   const filterEstado = document.getElementById("filter-estado");
   const filterBuscar = document.getElementById("filter-buscar");
-  const filterFecha = document.getElementById("filter-fecha");
+  const filterDesde = document.getElementById("filter-desde");
+  const filterHasta = document.getElementById("filter-hasta");
   const filterFechaTipo = document.getElementById("filter-fecha-tipo");
-  const filterLimpiarFecha = document.getElementById("filter-limpiar-fecha");
+  const filterLimpiarFechas = document.getElementById("filter-limpiar-fechas");
 
-  function matchFecha(item, fecha) {
-    if (filterFechaTipo.value === "recogida") {
-      const recogida = getFechaHoraRecogida(item);
-      if (!recogida) return false;
-      const y = recogida.getFullYear();
-      const m = String(recogida.getMonth() + 1).padStart(2, "0");
-      const d = String(recogida.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}` === fecha;
-    }
-    return toFechaISO(item.fecha_entrega) === fecha;
+  let items = [];
+  let loading = false;
+  let buscarTimer = null;
+
+  function readFilters() {
+    return {
+      estado: filterEstado.value,
+      fecha_tipo: filterFechaTipo.value,
+      desde: filterDesde.value,
+      hasta: filterHasta.value,
+      buscar: filterBuscar.value.trim(),
+    };
   }
 
-  function paint() {
-    let filtered = sortByEntrega(items);
-    const estado = filterEstado.value;
-    const fecha = filterFecha.value;
-    const q = filterBuscar.value.trim().toLowerCase();
+  async function loadStats() {
+    try {
+      const { data } = await api.getSolicitudesStats();
+      if (!statsEl) return;
+      statsEl.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Pendientes de entregar</div>
+            <div class="stat-value">${data?.pendientes ?? 0}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Entregas hoy</div>
+            <div class="stat-value">${data?.entregas_hoy ?? 0}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Recogidas</div>
+            <div class="stat-value">${data?.recogidas ?? 0}</div>
+          </div>
+        </div>`;
+    } catch {
+      /* stats opcionales; no bloquear la lista */
+    }
+  }
 
-    if (estado) filtered = filtered.filter((i) => i.estado === estado);
-    if (fecha) filtered = filtered.filter((i) => matchFecha(i, fecha));
-    if (q) {
-      filtered = filtered.filter(
-        (i) =>
-          (i.cliente_nombre || "").toLowerCase().includes(q) ||
-          (i.cliente_telefono || "").includes(q)
-      );
+  function setListLoading() {
+    listEl.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando ordenes...</div>`;
+  }
+
+  async function loadList() {
+    if (loading) return;
+    loading = true;
+    setListLoading();
+
+    const filters = readFilters();
+    if (filters.desde && filters.hasta && filters.desde > filters.hasta) {
+      loading = false;
+      listEl.innerHTML = `<div class="empty">La fecha "Desde" no puede ser posterior a "Hasta".</div>`;
+      return;
     }
 
-    if (!filtered.length) {
+    try {
+      const { data } = await api.getSolicitudes(filters);
+      items = sortByEntrega((data || []).map(normalizeSolicitudPago));
+      paintList();
+    } catch (err) {
+      items = [];
+      listEl.innerHTML = `
+        <div class="card empty">
+          <strong>No se pudieron cargar las ordenes</strong>
+          <p>${escapeHtml(err.message)}</p>
+          <p><button type="button" class="btn btn-primary" id="btn-open-api">Configurar API</button></p>
+        </div>`;
+      document.getElementById("btn-open-api")?.addEventListener("click", () => {
+        document.getElementById("btn-config-api")?.click();
+      });
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function refreshAll() {
+    await Promise.all([loadStats(), loadList()]);
+  }
+
+  function paintList() {
+    if (!items.length) {
       listEl.innerHTML = `<div class="empty">No hay ordenes con esos filtros.</div>`;
       return;
     }
 
-    listEl.innerHTML = filtered
+    listEl.innerHTML = items
       .map((item) => {
         const urgent = isUrgent(item);
         const hora = item.hora_entrega || "--:--";
@@ -189,7 +171,7 @@ function renderList(container, items) {
           if (item) item.estado = nuevo;
           e.target.dataset.estadoActual = nuevo;
           window.showToast?.("Estado actualizado", "success");
-          paint();
+          await refreshAll();
         } catch (err) {
           e.target.value = prev;
           window.showToast?.(err.message, "error");
@@ -198,15 +180,64 @@ function renderList(container, items) {
     });
   }
 
-  filterEstado.addEventListener("change", paint);
-  filterBuscar.addEventListener("input", paint);
-  filterFecha.addEventListener("change", paint);
-  filterFechaTipo.addEventListener("change", paint);
-  filterLimpiarFecha.addEventListener("click", () => {
-    filterFecha.value = "";
-    paint();
+  function scheduleListLoad() {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(loadList, BUSCAR_DEBOUNCE_MS);
+  }
+
+  filterEstado.addEventListener("change", loadList);
+  filterDesde.addEventListener("change", loadList);
+  filterHasta.addEventListener("change", loadList);
+  filterFechaTipo.addEventListener("change", loadList);
+  filterBuscar.addEventListener("input", scheduleListLoad);
+  filterLimpiarFechas.addEventListener("click", () => {
+    filterDesde.value = "";
+    filterHasta.value = "";
+    loadList();
   });
-  paint();
+
+  statsEl.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
+  setListLoading();
+  await refreshAll();
+}
+
+function buildShell(hoy) {
+  return `
+    <div id="orders-stats"></div>
+
+    <div class="card">
+      <div class="filters">
+        <label class="field">
+          <span>Estado</span>
+          <select id="filter-estado">
+            <option value="">Todos</option>
+            ${ESTADOS_GESTION.map((e) => `<option value="${e}">${e}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>Filtrar por fecha</span>
+          <select id="filter-fecha-tipo">
+            <option value="entrega">Fecha de entrega</option>
+            <option value="recogida">Fecha de recogida</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Desde</span>
+          <input type="date" id="filter-desde" value="${hoy}" />
+        </label>
+        <label class="field">
+          <span>Hasta</span>
+          <input type="date" id="filter-hasta" value="${hoy}" />
+        </label>
+        <label class="field">
+          <span>Buscar cliente</span>
+          <input type="search" id="filter-buscar" placeholder="Nombre o telefono" />
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm" id="filter-limpiar-fechas">Limpiar fechas</button>
+      </div>
+      <div id="orders-list"></div>
+    </div>
+  `;
 }
 
 function renderBadgePago(item) {

@@ -42,7 +42,10 @@ function handleRequest(e, httpMethod) {
 function routeGet(resource, p) {
   switch (resource) {
     case "solicitudes":
-      return { ok: true, data: listRows(SHEETS.solicitudes) };
+      if (p.stats === "1") {
+        return { ok: true, data: buildSolicitudesStats(listRows(SHEETS.solicitudes)) };
+      }
+      return { ok: true, data: listSolicitudes(p) };
     case "inventario":
       return { ok: true, data: listRows(SHEETS.inventario) };
     case "tarifas":
@@ -163,6 +166,93 @@ function serializeCell(header, value) {
   }
 
   return value;
+}
+
+function getHorasAlquiler(r) {
+  var horas = Number(r.horas_alquiler);
+  if (horas > 0) return horas;
+  var dias = Number(r.dias_alquiler) || 1;
+  return dias * 24;
+}
+
+function normalizeFechaISO(value) {
+  if (value === null || value === undefined || value === "") return "";
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+  var s = String(value);
+  var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s.slice(0, 10);
+}
+
+function getFechaRecogidaISO(r) {
+  var fecha = normalizeFechaISO(r.fecha_entrega);
+  if (!fecha) return "";
+  var hora = r.hora_entrega || "00:00";
+  var inicio = new Date(fecha + "T" + hora);
+  if (isNaN(inicio.getTime())) return "";
+  inicio.setTime(inicio.getTime() + getHorasAlquiler(r) * 60 * 60 * 1000);
+  return Utilities.formatDate(inicio, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function getFechaFiltroISO(r, fechaTipo) {
+  if (fechaTipo === "recogida") return getFechaRecogidaISO(r);
+  return normalizeFechaISO(r.fecha_entrega);
+}
+
+function matchSolicitudFilters(r, p) {
+  if (p.estado && r.estado !== p.estado) return false;
+
+  if (p.desde || p.hasta) {
+    var fecha = getFechaFiltroISO(r, p.fecha_tipo || "entrega");
+    if (!fecha) return false;
+    if (p.desde && fecha < p.desde) return false;
+    if (p.hasta && fecha > p.hasta) return false;
+  }
+
+  if (p.buscar) {
+    var q = String(p.buscar).trim().toLowerCase();
+    if (q) {
+      var nombre = String(r.cliente_nombre || "").toLowerCase();
+      var tel = String(r.cliente_telefono || "");
+      if (nombre.indexOf(q) === -1 && tel.indexOf(q) === -1) return false;
+    }
+  }
+
+  return true;
+}
+
+function listSolicitudes(p) {
+  var rows = listRows(SHEETS.solicitudes);
+  return rows.filter(function (r) {
+    return matchSolicitudFilters(r, p);
+  });
+}
+
+function buildSolicitudesStats(rows) {
+  var hoy = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var pendientes = 0;
+  var entregas_hoy = 0;
+  var recogidas = 0;
+
+  rows.forEach(function (r) {
+    var estado = r.estado;
+    if (estado !== "cancelada" && estado !== "recogida") pendientes++;
+    if (estado === "recogida") recogidas++;
+    if (
+      normalizeFechaISO(r.fecha_entrega) === hoy &&
+      estado !== "cancelada" &&
+      estado !== "recogida"
+    ) {
+      entregas_hoy++;
+    }
+  });
+
+  return {
+    pendientes: pendientes,
+    entregas_hoy: entregas_hoy,
+    recogidas: recogidas,
+  };
 }
 
 function listRows(sheetName) {

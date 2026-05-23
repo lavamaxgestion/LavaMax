@@ -163,7 +163,17 @@ async function authRequest(pin) {
 
 export const api = {
   login: (pin) => authRequest(pin),
-  getSolicitudes: () => request("GET", { resource: "solicitudes" }),
+  getSolicitudes: (filters = {}) => {
+    const params = { resource: "solicitudes" };
+    if (filters.estado) params.estado = filters.estado;
+    if (filters.fecha_tipo) params.fecha_tipo = filters.fecha_tipo;
+    if (filters.desde) params.desde = filters.desde;
+    if (filters.hasta) params.hasta = filters.hasta;
+    if (filters.buscar) params.buscar = filters.buscar;
+    return request("GET", params);
+  },
+  getSolicitudesStats: () =>
+    request("GET", { resource: "solicitudes", stats: "1" }),
   createSolicitud: (payload) =>
     request("POST", { resource: "solicitudes" }, payload),
   updateSolicitud: (id, payload) =>

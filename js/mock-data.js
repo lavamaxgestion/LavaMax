@@ -8,6 +8,10 @@ import {
   buildReporteFinanciero,
   normalizeSolicitudPago,
 } from "./finanzas.js";
+import {
+  filterSolicitudes,
+  buildSolicitudesStats,
+} from "./solicitudes-filter.js";
 
 const MOCK_STORAGE_KEY = "lavarent_mock_store";
 
@@ -317,7 +321,16 @@ export async function mockRequest(method, params = {}, body = null) {
     if (method === "GET") {
       switch (resource) {
         case "solicitudes":
-          return { ok: true, data: [...store.solicitudes] };
+          if (params.stats === "1") {
+            return {
+              ok: true,
+              data: buildSolicitudesStats(store.solicitudes, todayStr()),
+            };
+          }
+          return {
+            ok: true,
+            data: filterSolicitudes(store.solicitudes, params),
+          };
         case "inventario":
           return { ok: true, data: [...store.inventario] };
         case "tarifas":
