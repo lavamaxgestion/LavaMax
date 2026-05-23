@@ -66,7 +66,7 @@ function renderEntregasList(container, items, hoy) {
       </p>
       <label class="field entregas-buscar">
         <span>Buscar</span>
-        <input type="search" id="entregas-buscar" placeholder="Cliente, telefono o lavadora" />
+        <input type="search" id="entregas-buscar" placeholder="Cliente, telefono, direccion o lavadora" />
       </label>
       <div id="entregas-list"></div>
     </div>
@@ -84,6 +84,7 @@ function renderEntregasList(container, items, hoy) {
         (i) =>
           (i.cliente_nombre || "").toLowerCase().includes(q) ||
           (i.cliente_telefono || "").includes(q) ||
+          (i.direccion || "").toLowerCase().includes(q) ||
           (i.lavadora_codigo || "").toLowerCase().includes(q)
       );
     }
@@ -112,7 +113,7 @@ function renderEntregasList(container, items, hoy) {
             </div>
             <div class="order-meta">
               <div>Tel: <strong>${escapeHtml(item.cliente_telefono || "-")}</strong></div>
-              <div>${escapeHtml(item.direccion || "Sin direccion")}</div>
+              ${renderDireccionEntrega(item.direccion)}
               <div>Lavadora: <strong>${escapeHtml(item.lavadora_codigo || "-")}</strong> · ${formatDuracionAlquiler(item)} · ${formatMoney(item.total)}</div>
             </div>
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}
@@ -145,9 +146,10 @@ function setupEntregaDialog() {
   const dialog = document.getElementById("dialog-entrega-update");
   const form = document.getElementById("form-entrega-update");
   const sel = document.getElementById("dialog-entrega-estado");
+  const direccionEl = document.getElementById("dialog-entrega-direccion");
   const cambiosEl = document.getElementById("dialog-entrega-cambios");
 
-  if (!dialog || !form || !sel) return;
+  if (!dialog || !form || !sel || !direccionEl) return;
 
   sel.innerHTML = ESTADOS_GESTION_ENTREGA.map(
     (e) => `<option value="${e}">${e}</option>`
@@ -162,17 +164,28 @@ function setupEntregaDialog() {
     btn.addEventListener("click", closeDialog);
   });
 
-  sel.addEventListener("change", () => {
+  function updateCambiosHint() {
     if (!entregaModalContext) return;
     const { snapshot } = entregaModalContext;
+    const parts = [];
+    const nuevaDireccion = direccionEl.value.trim();
     if (sel.value !== snapshot.estado) {
+      parts.push(`Gestion: ${snapshot.estado} → ${sel.value}`);
+    }
+    if (nuevaDireccion !== snapshot.direccion) {
+      parts.push("Direccion de entrega actualizada");
+    }
+    if (parts.length) {
       cambiosEl.hidden = false;
-      cambiosEl.textContent = `Gestion: ${snapshot.estado} → ${sel.value}`;
+      cambiosEl.textContent = parts.join(" · ");
     } else {
       cambiosEl.hidden = true;
       cambiosEl.textContent = "";
     }
-  });
+  }
+
+  sel.addEventListener("change", updateCambiosHint);
+  direccionEl.addEventListener("input", updateCambiosHint);
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -180,21 +193,32 @@ function setupEntregaDialog() {
 
     const { item, snapshot, onSaved, guardar } = entregaModalContext;
     const nuevoEstado = sel.value;
+    const nuevaDireccion = direccionEl.value.trim();
 
-    if (nuevoEstado === snapshot.estado) {
+    const payload = {};
+    if (nuevoEstado !== snapshot.estado) payload.estado = nuevoEstado;
+    if (nuevaDireccion !== snapshot.direccion) payload.direccion = nuevaDireccion;
+
+    if (!Object.keys(payload).length) {
       window.showToast?.("No hay cambios que guardar", "");
       closeDialog();
       return;
     }
 
-    let msg = `¿Confirmar cambio de gestion a "${nuevoEstado}"?`;
-    if (nuevoEstado === "entregada") {
+    if (!nuevaDireccion) {
+      window.showToast?.("Ingresa la direccion de entrega", "error");
+      direccionEl.focus();
+      return;
+    }
+
+    let msg = `¿Confirmar cambios en esta entrega?`;
+    if (payload.estado === "entregada") {
       msg = "¿Confirmar que la lavadora fue entregada al cliente?";
     }
 
     if (!confirm(msg)) return;
 
-    const ok = await guardar(item.id, { estado: nuevoEstado }, item);
+    const ok = await guardar(item.id, payload, item);
     if (!ok) return;
 
     closeDialog();
@@ -203,30 +227,54 @@ function setupEntregaDialog() {
 }
 
 function openEntregaDialog(item, items, repaint) {
+  const direccion = (item.direccion || "").trim();
   entregaModalContext = {
     item,
-    snapshot: { estado: item.estado || "pendiente" },
+    snapshot: { estado: item.estado || "pendiente", direccion },
     onSaved: repaint,
     guardar: guardarSolicitud,
   };
 
   const resumen = document.getElementById("dialog-entrega-resumen");
   const sel = document.getElementById("dialog-entrega-estado");
+  const direccionEl = document.getElementById("dialog-entrega-direccion");
   const cambiosEl = document.getElementById("dialog-entrega-cambios");
 
   resumen.innerHTML = `
     <p><strong>${escapeHtml(item.cliente_nombre)}</strong></p>
     <p class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</p>
     <p>Entrega: <strong>${item.fecha_entrega} ${item.hora_entrega || ""}</strong></p>
-    <p>${escapeHtml(item.direccion || "")}</p>
     <p>Lavadora: ${escapeHtml(item.lavadora_codigo || "-")} · ${formatDuracionAlquiler(item)}</p>
   `;
 
+  direccionEl.value = direccion;
   sel.value = item.estado || "pendiente";
   cambiosEl.hidden = true;
   cambiosEl.textContent = "";
 
   document.getElementById("dialog-entrega-update")?.showModal();
+}
+
+function renderDireccionEntrega(direccion) {
+  const text = (direccion || "").trim();
+  if (!text) {
+    return `
+      <div class="entregas-direccion entregas-direccion--missing">
+        <span class="entregas-direccion-label">Direccion de entrega</span>
+        <span class="entregas-direccion-text">Sin direccion registrada</span>
+        <span class="entregas-direccion-hint">Agregala con Actualizar gestion.</span>
+      </div>
+    `;
+  }
+
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text)}`;
+  return `
+    <div class="entregas-direccion">
+      <span class="entregas-direccion-label">Direccion de entrega</span>
+      <span class="entregas-direccion-text">${escapeHtml(text)}</span>
+      <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="entregas-maps-link">Abrir en Maps</a>
+    </div>
+  `;
 }
 
 async function guardarSolicitud(id, payload, item) {

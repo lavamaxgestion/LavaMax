@@ -716,6 +716,49 @@ tr:hover td {
   max-width: 320px;
 }
 
+.entregas-direccion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.35rem 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(59, 158, 255, 0.08);
+  border: 1px solid rgba(59, 158, 255, 0.18);
+}
+
+.entregas-direccion--missing {
+  background: rgba(255, 193, 7, 0.08);
+  border-color: rgba(255, 193, 7, 0.25);
+}
+
+.entregas-direccion-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.entregas-direccion-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.entregas-direccion-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.entregas-maps-link {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.15rem 0;
+  font-size: 0.82rem;
+}
+
 .entregas-card .order-card-actions {
   display: flex;
   align-items: stretch;

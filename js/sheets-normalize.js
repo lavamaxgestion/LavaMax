@@ -70,6 +70,10 @@ export function normalizeSolicitudFromSheets(row) {
       row.cliente_telefono !== undefined && row.cliente_telefono !== null
         ? String(row.cliente_telefono)
         : "",
+    direccion:
+      row.direccion !== undefined && row.direccion !== null
+        ? String(row.direccion).trim()
+        : "",
     monto_pagado:
       row.monto_pagado !== undefined && row.monto_pagado !== null
         ? String(row.monto_pagado)
