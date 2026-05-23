@@ -37,11 +37,38 @@ export async function renderEntregas(container, topbar) {
   }
 }
 
+function isPorEntregar(item) {
+  const e = item.estado;
+  return e === "pendiente" || e === "confirmada";
+}
+
+function isEntregadaHoy(item) {
+  return item.estado === "entregada";
+}
+
+function setupViewTabs(container, panels, onChange) {
+  const tabs = container.querySelectorAll(".report-tab");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.tab;
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      Object.entries(panels).forEach(([key, panel]) => {
+        if (panel) panel.hidden = key !== id;
+      });
+      onChange(id);
+    });
+  });
+}
+
 function renderEntregasList(container, items, hoy) {
   setupEntregaDialog();
 
-  const pendientes = items.filter((i) => i.estado === "pendiente" || i.estado === "confirmada");
-  const entregadas = items.filter((i) => i.estado === "entregada").length;
+  const pendientes = items.filter(isPorEntregar);
+  const entregadasList = items.filter(isEntregadaHoy);
 
   container.innerHTML = `
     <div class="stats-grid entregas-stats">
@@ -55,30 +82,58 @@ function renderEntregasList(container, items, hoy) {
       </div>
       <div class="stat">
         <div class="stat-label">Ya entregadas</div>
-        <div class="stat-value stat-value-ingresos">${entregadas}</div>
+        <div class="stat-value stat-value-ingresos">${entregadasList.length}</div>
       </div>
     </div>
 
     <div class="card">
       <h2 style="margin:0 0 0.35rem">Entregas del dia</h2>
       <p class="hint" style="margin:0 0 1rem">
-        ${formatDate(hoy)} · Ordenadas de la hora mas proxima a la mas lejana. Pulsa Actualizar para cambiar el estado de gestion.
+        ${formatDate(hoy)} · Ordenadas de la hora mas proxima a la mas lejana.
       </p>
-      <label class="field entregas-buscar">
-        <span>Buscar</span>
-        <input type="search" id="entregas-buscar" placeholder="Cliente, telefono o lavadora" />
-      </label>
-      <div id="entregas-list"></div>
+      <nav class="report-tabs" role="tablist" aria-label="Entregas de hoy">
+        <button type="button" class="report-tab active" role="tab" aria-selected="true" data-tab="pendientes" id="entregas-tab-pendientes">
+          Por entregar <span class="report-tab-count" id="entregas-count-pendientes">${pendientes.length}</span>
+        </button>
+        <button type="button" class="report-tab" role="tab" aria-selected="false" data-tab="entregadas" id="entregas-tab-entregadas">
+          Entregadas <span class="report-tab-count" id="entregas-count-entregadas">${entregadasList.length}</span>
+        </button>
+      </nav>
+      <div id="entregas-panel-pendientes" class="report-panel" role="tabpanel" aria-labelledby="entregas-tab-pendientes">
+        <p class="hint report-rango-hint">Pendientes y confirmadas · Pulsa Actualizar para marcar entrega.</p>
+        <label class="field entregas-buscar">
+          <span>Buscar</span>
+          <input type="search" id="entregas-buscar-pendientes" placeholder="Cliente, telefono o lavadora" />
+        </label>
+        <div id="entregas-list-pendientes"></div>
+      </div>
+      <div id="entregas-panel-entregadas" class="report-panel" role="tabpanel" aria-labelledby="entregas-tab-entregadas" hidden>
+        <p class="hint report-rango-hint">Lavadoras ya entregadas al cliente hoy.</p>
+        <label class="field entregas-buscar">
+          <span>Buscar</span>
+          <input type="search" id="entregas-buscar-entregadas" placeholder="Cliente, telefono o lavadora" />
+        </label>
+        <div id="entregas-list-entregadas"></div>
+      </div>
     </div>
   `;
 
-  const listEl = document.getElementById("entregas-list");
-  const filterBuscar = document.getElementById("entregas-buscar");
+  const listPendientes = document.getElementById("entregas-list-pendientes");
+  const listEntregadas = document.getElementById("entregas-list-entregadas");
+  const buscarPendientes = document.getElementById("entregas-buscar-pendientes");
+  const buscarEntregadas = document.getElementById("entregas-buscar-entregadas");
+  const countPendientes = document.getElementById("entregas-count-pendientes");
+  const countEntregadas = document.getElementById("entregas-count-entregadas");
 
-  function paint() {
-    let filtered = sortByEntrega([...items]);
-    const q = filterBuscar.value.trim().toLowerCase();
+  function updateTabCounts() {
+    const nP = items.filter(isPorEntregar).length;
+    const nE = items.filter(isEntregadaHoy).length;
+    if (countPendientes) countPendientes.textContent = String(nP);
+    if (countEntregadas) countEntregadas.textContent = String(nE);
+  }
 
+  function paintPanel(listEl, tabItems, q, emptyMsg) {
+    let filtered = sortByEntrega([...tabItems]);
     if (q) {
       filtered = filtered.filter(
         (i) =>
@@ -89,7 +144,7 @@ function renderEntregasList(container, items, hoy) {
     }
 
     if (!filtered.length) {
-      listEl.innerHTML = `<div class="empty">No hay entregas programadas para hoy con ese criterio.</div>`;
+      listEl.innerHTML = `<div class="empty">${emptyMsg}</div>`;
       return;
     }
 
@@ -129,13 +184,35 @@ function renderEntregasList(container, items, hoy) {
     listEl.querySelectorAll(".btn-actualizar-entrega").forEach((btn) => {
       btn.addEventListener("click", () => {
         const item = items.find((i) => i.id === btn.dataset.id);
-        if (item) openEntregaDialog(item, items, paint);
+        if (item) openEntregaDialog(item, repaintAll);
       });
     });
   }
 
-  filterBuscar.addEventListener("input", paint);
-  paint();
+  function repaintAll() {
+    updateTabCounts();
+    paintPanel(
+      listPendientes,
+      items.filter(isPorEntregar),
+      buscarPendientes.value.trim().toLowerCase(),
+      "No hay entregas pendientes para hoy con ese criterio."
+    );
+    paintPanel(
+      listEntregadas,
+      items.filter(isEntregadaHoy),
+      buscarEntregadas.value.trim().toLowerCase(),
+      "No hay lavadoras entregadas hoy con ese criterio."
+    );
+  }
+
+  setupViewTabs(container, {
+    pendientes: document.getElementById("entregas-panel-pendientes"),
+    entregadas: document.getElementById("entregas-panel-entregadas"),
+  });
+
+  buscarPendientes.addEventListener("input", repaintAll);
+  buscarEntregadas.addEventListener("input", repaintAll);
+  repaintAll();
 }
 
 function setupEntregaDialog() {
@@ -221,11 +298,11 @@ function setupEntregaDialog() {
   });
 }
 
-function openEntregaDialog(item, items, repaint) {
+function openEntregaDialog(item, onSaved) {
   entregaModalContext = {
     item,
     snapshot: { estado: item.estado || "pendiente" },
-    onSaved: repaint,
+    onSaved,
     guardar: guardarSolicitud,
   };
 

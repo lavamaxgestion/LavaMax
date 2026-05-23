@@ -1,4 +1,5 @@
 import { normalizeSolicitudAlquiler } from "./alquiler.js";
+import { normalizarEstadoGestion } from "./estados.js";
 
 export const ESTADOS_PAGO = [
   "pago pendiente",
@@ -9,11 +10,37 @@ export const ESTADOS_PAGO = [
 
 export const ESTADO_PAGO_DEFAULT = "pago pendiente";
 
-const ESTADO_PAGO_LEGACY = "pendiente de pago";
+const ESTADO_PAGO_ALIASES = {
+  "": ESTADO_PAGO_DEFAULT,
+  "pendiente de pago": ESTADO_PAGO_DEFAULT,
+  pendiente: ESTADO_PAGO_DEFAULT,
+  "pago pendiente": ESTADO_PAGO_DEFAULT,
+  "pago efectivo": "pago efectivo",
+  efectivo: "pago efectivo",
+  "pago en efectivo": "pago efectivo",
+  "pago transferencia": "pago transferencia",
+  transferencia: "pago transferencia",
+  "pago parcial": "pago parcial",
+  parcial: "pago parcial",
+};
 
 export function normalizarEstadoPago(estadoPago) {
-  if (!estadoPago || estadoPago === ESTADO_PAGO_LEGACY) return ESTADO_PAGO_DEFAULT;
-  return estadoPago;
+  if (estadoPago === undefined || estadoPago === null) return ESTADO_PAGO_DEFAULT;
+
+  const raw = String(estadoPago)
+    .replace(/\u00a0/g, " ")
+    .trim();
+  if (!raw) return ESTADO_PAGO_DEFAULT;
+
+  const key = raw.toLowerCase().replace(/\s+/g, " ");
+  if (ESTADO_PAGO_ALIASES[key]) return ESTADO_PAGO_ALIASES[key];
+
+  if (key.includes("efectivo")) return "pago efectivo";
+  if (key.includes("transfer")) return "pago transferencia";
+  if (key.includes("parcial")) return "pago parcial";
+  if (key.includes("pendiente")) return ESTADO_PAGO_DEFAULT;
+
+  return ESTADO_PAGO.includes(key) ? key : ESTADO_PAGO_DEFAULT;
 }
 
 export function pagoBadgeClass(estadoPago) {
@@ -40,6 +67,20 @@ export function montoCobrado(solicitud) {
 export function saldoPendiente(solicitud) {
   const total = Number(solicitud.total) || 0;
   return Math.max(0, total - montoCobrado(solicitud));
+}
+
+/** Cobro registrado (efectivo, transferencia o parcial). */
+export function isOrdenPagada(solicitud) {
+  return normalizarEstadoPago(solicitud.estado_pago) !== ESTADO_PAGO_DEFAULT;
+}
+
+/** Visible en Pagos: en ruta o ya recogida con pago registrado. */
+export function isOrdenVisibleEnPagos(solicitud) {
+  const e = normalizarEstadoGestion(solicitud.estado);
+  if (e === "cancelada" || e === "pendiente") return false;
+  if (e === "confirmada" || e === "entregada") return true;
+  if (e === "recogida") return isOrdenPagada(solicitud);
+  return false;
 }
 
 export function buildReporteFinanciero(solicitudes, desde, hasta) {
@@ -99,6 +140,7 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
 
 export function normalizeSolicitudPago(solicitud) {
   normalizeSolicitudAlquiler(solicitud);
+  solicitud.estado = normalizarEstadoGestion(solicitud.estado) || solicitud.estado;
   solicitud.estado_pago = normalizarEstadoPago(solicitud.estado_pago);
   if (solicitud.monto_pagado === undefined || solicitud.monto_pagado === null) {
     solicitud.monto_pagado = "";

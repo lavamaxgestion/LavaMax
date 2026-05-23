@@ -8,6 +8,12 @@ export const ESTADOS_GESTION = [
   "cancelada",
 ];
 
+export function normalizarEstadoGestion(estado) {
+  return String(estado ?? "")
+    .trim()
+    .toLowerCase();
+}
+
 /** Activas: aun no cerradas ni canceladas. */
 export function isOrdenActiva(solicitud) {
   const e = solicitud.estado;
@@ -16,7 +22,7 @@ export function isOrdenActiva(solicitud) {
 
 /** En ruta o listas para cobro al recoger. */
 export function isOrdenEnRuta(solicitud) {
-  const e = solicitud.estado;
+  const e = normalizarEstadoGestion(solicitud.estado);
   return e === "confirmada" || e === "entregada";
 }
 

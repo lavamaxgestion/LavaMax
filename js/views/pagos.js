@@ -13,16 +13,37 @@ import {
   saldoPendiente,
   pagoBadgeClass,
   normalizeSolicitudPago,
+  isOrdenPagada,
+  isOrdenVisibleEnPagos,
+  normalizarEstadoPago,
 } from "../finanzas.js";
 import {
   ESTADOS_GESTION,
   isOrdenEnRuta,
+  normalizarEstadoGestion,
   puedeCambiarGestionEnPagos,
   esTransicionRecogidaEnPagos,
 } from "../estados.js";
 
 let pagoDialogBound = false;
 let modalContext = null;
+
+function setupViewTabs(container, panels) {
+  const tabs = container.querySelectorAll(".report-tab");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.tab;
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      Object.entries(panels).forEach(([key, panel]) => {
+        if (panel) panel.hidden = key !== id;
+      });
+    });
+  });
+}
 
 export async function renderPagos(container) {
   container.innerHTML = `<div class="loading"><span class="spinner"></span> Cargando pagos...</div>`;
@@ -32,7 +53,7 @@ export async function renderPagos(container) {
     const items = sortByRecogida(
       (data || [])
         .map(normalizeSolicitudPago)
-        .filter((i) => isOrdenEnRuta(i)),
+        .filter((i) => isOrdenVisibleEnPagos(i)),
       { descendente: false }
     );
     renderPagosList(container, items);
@@ -48,11 +69,13 @@ export async function renderPagos(container) {
 function renderPagosList(container, items) {
   setupPagoDialog();
 
+  const enRuta = items.filter((i) => isOrdenEnRuta(i));
   const cobradoTotal = items.reduce((s, i) => s + montoCobrado(i), 0);
-  const porCobrar = items.reduce((s, i) => s + saldoPendiente(i), 0);
-  const pendientes = items.filter(
-    (i) => (i.estado_pago || ESTADO_PAGO_DEFAULT) === ESTADO_PAGO_DEFAULT
+  const porCobrar = enRuta.reduce((s, i) => s + saldoPendiente(i), 0);
+  const pendientesPago = items.filter(
+    (i) => isOrdenEnRuta(i) && !isOrdenPagada(i)
   ).length;
+  const pagadasCount = items.filter((i) => isOrdenPagada(i)).length;
   const listosRecoger = items.filter((i) => isRecogidaVencida(i)).length;
 
   container.innerHTML = `
@@ -67,7 +90,7 @@ function renderPagosList(container, items) {
       </div>
       <div class="stat">
         <div class="stat-label">Pendientes de pago</div>
-        <div class="stat-value" id="pagos-stat-pendientes">${pendientes}</div>
+        <div class="stat-value" id="pagos-stat-pendientes">${pendientesPago}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Listos para recoger</div>
@@ -77,47 +100,66 @@ function renderPagosList(container, items) {
 
     <div class="card">
       <h2 style="margin:0 0 0.35rem">Cobros en recogida</h2>
-      <p class="hint" style="margin:0 0 1rem">
-        Ordenado por recogida (la mas proxima primero). Pulsa Actualizar para cambiar gestion y pago con confirmacion.
-      </p>
-      <div class="filters">
-        <label class="field">
-          <span>Gestion</span>
-          <select id="filter-gestion">
-            <option value="">Todas en ruta</option>
-            ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada")
-              .map((e) => `<option value="${e}">${e}</option>`)
-              .join("")}
-          </select>
-        </label>
-        <label class="field">
-          <span>Estado de pago</span>
-          <select id="filter-pago">
-            <option value="">Todos</option>
-            ${ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("")}
-          </select>
-        </label>
-        <label class="field">
-          <span>Buscar</span>
-          <input type="search" id="filter-pago-buscar" placeholder="Cliente, telefono o lavadora" />
-        </label>
+      <nav class="report-tabs" role="tablist" aria-label="Cobros">
+        <button type="button" class="report-tab active" role="tab" aria-selected="true" data-tab="cobrar" id="pagos-tab-cobrar">
+          Por cobrar <span class="report-tab-count" id="pagos-count-cobrar">${pendientesPago}</span>
+        </button>
+        <button type="button" class="report-tab" role="tab" aria-selected="false" data-tab="pagadas" id="pagos-tab-pagadas">
+          Ya pagadas <span class="report-tab-count" id="pagos-count-pagadas">${pagadasCount}</span>
+        </button>
+      </nav>
+      <div id="pagos-panel-cobrar" class="report-panel" role="tabpanel" aria-labelledby="pagos-tab-cobrar">
+        <p class="hint report-rango-hint">Ordenado por recogida (la mas proxima primero). Registra el cobro al recoger la lavadora.</p>
+        <div class="filters">
+          <label class="field">
+            <span>Gestion</span>
+            <select id="filter-gestion">
+              <option value="">Todas en ruta</option>
+              ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada")
+                .map((e) => `<option value="${e}">${e}</option>`)
+                .join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Estado de pago</span>
+            <select id="filter-pago">
+              <option value="">Todos</option>
+              ${ESTADOS_PAGO.map((e) => `<option value="${e}">${e}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Buscar</span>
+            <input type="search" id="filter-pago-buscar" placeholder="Cliente, telefono o lavadora" />
+          </label>
+        </div>
+        <div id="pagos-list"></div>
       </div>
-      <div id="pagos-list"></div>
+      <div id="pagos-panel-pagadas" class="report-panel" role="tabpanel" aria-labelledby="pagos-tab-pagadas" hidden>
+        <p class="hint report-rango-hint">Cobros ya registrados (efectivo, transferencia o parcial).</p>
+        <label class="field entregas-buscar">
+          <span>Buscar</span>
+          <input type="search" id="filter-pagadas-buscar" placeholder="Cliente, telefono o lavadora" />
+        </label>
+        <div id="pagos-list-pagadas"></div>
+      </div>
     </div>
   `;
 
   const listEl = document.getElementById("pagos-list");
+  const listPagadas = document.getElementById("pagos-list-pagadas");
   const filterGestion = document.getElementById("filter-gestion");
   const filterPago = document.getElementById("filter-pago");
   const filterBuscar = document.getElementById("filter-pago-buscar");
+  const filterPagadasBuscar = document.getElementById("filter-pagadas-buscar");
+  const countCobrar = document.getElementById("pagos-count-cobrar");
+  const countPagadas = document.getElementById("pagos-count-pagadas");
 
   function updateStats() {
+    const enRuta = items.filter((i) => isOrdenEnRuta(i));
     const cobrado = items.reduce((s, i) => s + montoCobrado(i), 0);
-    const saldo = items.reduce((s, i) => s + saldoPendiente(i), 0);
-    const pend = items.filter(
-      (i) => (i.estado_pago || ESTADO_PAGO_DEFAULT) === ESTADO_PAGO_DEFAULT
-    ).length;
-    const recoger = items.filter((i) => isRecogidaVencida(i)).length;
+    const saldo = enRuta.reduce((s, i) => s + saldoPendiente(i), 0);
+    const pend = enRuta.filter((i) => !isOrdenPagada(i)).length;
+    const recoger = enRuta.filter((i) => isRecogidaVencida(i)).length;
     document.getElementById("pagos-stat-por-cobrar").textContent = formatMoney(saldo);
     document.getElementById("pagos-stat-cobrado").textContent = formatMoney(cobrado);
     document.getElementById("pagos-stat-pendientes").textContent = String(pend);
@@ -156,26 +198,16 @@ function renderPagosList(container, items) {
     };
   }
 
-  function paint() {
-    let filtered = sortByRecogida([...items], { descendente: false });
-    const eg = filterGestion.value;
-    const ep = filterPago.value;
-    const q = filterBuscar.value.trim().toLowerCase();
+  function updateTabCounts() {
+    const nCobrar = items.filter((i) => isOrdenEnRuta(i) && !isOrdenPagada(i)).length;
+    const nPagadas = items.filter((i) => isOrdenPagada(i)).length;
+    if (countCobrar) countCobrar.textContent = String(nCobrar);
+    if (countPagadas) countPagadas.textContent = String(nPagadas);
+  }
 
-    if (eg) filtered = filtered.filter((i) => i.estado === eg);
-    if (ep) filtered = filtered.filter((i) => (i.estado_pago || ESTADO_PAGO_DEFAULT) === ep);
-    if (q) {
-      filtered = filtered.filter(
-        (i) =>
-          (i.cliente_nombre || "").toLowerCase().includes(q) ||
-          (i.cliente_telefono || "").includes(q) ||
-          (i.lavadora_codigo || "").toLowerCase().includes(q)
-      );
-    }
-
+  function mountList(targetEl, filtered, emptyMsg) {
     if (!filtered.length) {
-      listEl.innerHTML = `<div class="empty">No hay solicitudes en ruta con esos filtros.</div>`;
-      updateStats();
+      targetEl.innerHTML = `<div class="empty">${emptyMsg}</div>`;
       return;
     }
 
@@ -227,7 +259,7 @@ function renderPagosList(container, items) {
       })
       .join("");
 
-    listEl.innerHTML = `
+    targetEl.innerHTML = `
       <div class="pagos-cards">${cardsHtml}</div>
       <div class="table-wrap pagos-table-wrap">
         <table class="pagos-table">
@@ -250,14 +282,68 @@ function renderPagosList(container, items) {
       </div>
     `;
 
-    updateStats();
-
-    listEl.querySelectorAll(".btn-actualizar-pago").forEach((btn) => {
+    targetEl.querySelectorAll(".btn-actualizar-pago").forEach((btn) => {
       btn.addEventListener("click", () => {
         const item = items.find((i) => i.id === btn.dataset.id);
         if (item) openPagoDialog(item);
       });
     });
+  }
+
+  function paintCobrar() {
+    let filtered = sortByRecogida(
+      items.filter((i) => isOrdenEnRuta(i) && !isOrdenPagada(i)),
+      { descendente: false }
+    );
+    const eg = filterGestion.value;
+    const ep = filterPago.value;
+    const q = filterBuscar.value.trim().toLowerCase();
+
+    if (eg) filtered = filtered.filter((i) => normalizarEstadoGestion(i.estado) === eg);
+    if (ep) filtered = filtered.filter((i) => normalizarEstadoPago(i.estado_pago) === ep);
+    if (q) {
+      filtered = filtered.filter(
+        (i) =>
+          (i.cliente_nombre || "").toLowerCase().includes(q) ||
+          (i.cliente_telefono || "").includes(q) ||
+          (i.lavadora_codigo || "").toLowerCase().includes(q)
+      );
+    }
+
+    mountList(
+      listEl,
+      filtered,
+      "No hay ordenes por cobrar con esos filtros."
+    );
+  }
+
+  function paintPagadas() {
+    let filtered = sortByRecogida(
+      items.filter((i) => isOrdenPagada(i)),
+      { descendente: false }
+    );
+    const q = filterPagadasBuscar.value.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(
+        (i) =>
+          (i.cliente_nombre || "").toLowerCase().includes(q) ||
+          (i.cliente_telefono || "").includes(q) ||
+          (i.lavadora_codigo || "").toLowerCase().includes(q)
+      );
+    }
+
+    mountList(
+      listPagadas,
+      filtered,
+      "No hay ordenes pagadas con ese criterio."
+    );
+  }
+
+  function repaintAll() {
+    updateTabCounts();
+    updateStats();
+    paintCobrar();
+    paintPagadas();
   }
 
   async function guardarSolicitud(id, payload, item, mensaje) {
@@ -281,12 +367,8 @@ function renderPagosList(container, items) {
         estado_pago: item.estado_pago || ESTADO_PAGO_DEFAULT,
         monto_pagado: item.monto_pagado ?? "",
       },
-      onSaved: (payload) => {
-        if (payload.estado === "recogida") {
-          const idx = items.findIndex((i) => i.id === item.id);
-          if (idx >= 0) items.splice(idx, 1);
-        }
-        paint();
+      onSaved: () => {
+        repaintAll();
       },
       guardar: guardarSolicitud,
     };
@@ -294,10 +376,16 @@ function renderPagosList(container, items) {
     document.getElementById("dialog-pago-update")?.showModal();
   }
 
-  filterGestion.addEventListener("change", paint);
-  filterPago.addEventListener("change", paint);
-  filterBuscar.addEventListener("input", paint);
-  paint();
+  setupViewTabs(container, {
+    cobrar: document.getElementById("pagos-panel-cobrar"),
+    pagadas: document.getElementById("pagos-panel-pagadas"),
+  });
+
+  filterGestion.addEventListener("change", repaintAll);
+  filterPago.addEventListener("change", repaintAll);
+  filterBuscar.addEventListener("input", repaintAll);
+  filterPagadasBuscar.addEventListener("input", repaintAll);
+  repaintAll();
 }
 
 function setupPagoDialog() {
