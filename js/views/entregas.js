@@ -112,7 +112,7 @@ function renderEntregasList(container, items, hoy) {
             </div>
             <div class="order-meta">
               <div>Tel: <strong>${escapeHtml(item.cliente_telefono || "-")}</strong></div>
-              <div>${escapeHtml(item.direccion || "Sin direccion")}</div>
+              <div>Direccion: <strong>${escapeHtml(item.direccion || "-")}</strong></div>
               <div>Lavadora: <strong>${escapeHtml(item.lavadora_codigo || "-")}</strong> · ${formatDuracionAlquiler(item)} · ${formatMoney(item.total)}</div>
             </div>
             ${item.notas ? `<div class="order-meta">Notas: ${escapeHtml(item.notas)}</div>` : ""}

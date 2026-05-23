@@ -140,6 +140,7 @@ function renderPagosList(container, items) {
       html: `
         <strong>${escapeHtml(item.cliente_nombre)}</strong>
         <div class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</div>
+        <div class="pagos-sub">Direccion: ${escapeHtml(item.direccion || "-")}</div>
         <div class="pagos-sub">${escapeHtml(item.lavadora_codigo || "-")} · ${formatDuracionAlquiler(item)}</div>
       `,
       badges: `
@@ -437,6 +438,7 @@ function fillPagoDialog(item) {
   resumen.innerHTML = `
     <p><strong>${escapeHtml(item.cliente_nombre)}</strong></p>
     <p class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</p>
+    <p class="pagos-sub">Direccion: ${escapeHtml(item.direccion || "-")}</p>
     <p>Recogida: <strong>${formatFechaHoraRecogida(item)}</strong></p>
     <p>Lavadora: ${escapeHtml(item.lavadora_codigo || "-")} · ${formatDuracionAlquiler(item)}</p>
     <p>Total ${formatMoney(item.total)} · Saldo ${formatMoney(saldo)}</p>
