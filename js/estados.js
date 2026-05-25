@@ -16,8 +16,14 @@ export function normalizarEstadoGestion(estado) {
 
 /** Activas: aun no cerradas ni canceladas. */
 export function isOrdenActiva(solicitud) {
-  const e = solicitud.estado;
+  const e = normalizarEstadoGestion(solicitud.estado);
   return e !== "cancelada" && e !== "recogida";
+}
+
+/** Aun no entregadas al cliente (pendiente o confirmada). */
+export function isPorEntregar(solicitud) {
+  const e = normalizarEstadoGestion(solicitud.estado);
+  return e === "pendiente" || e === "confirmada";
 }
 
 /** En ruta o listas para cobro al recoger. */

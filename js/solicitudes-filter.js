@@ -1,5 +1,6 @@
 import { getFechaHoraRecogida } from "./alquiler.js";
 import { toFechaISO } from "./sheets-normalize.js";
+import { isPorEntregar, normalizarEstadoGestion } from "./estados.js";
 
 export function getFechaFiltroISO(item, fechaTipo = "entrega") {
   if (fechaTipo === "recogida") {
@@ -46,8 +47,8 @@ export function buildSolicitudesStats(items, hoy) {
   let recogidas = 0;
 
   for (const item of items) {
-    const estado = item.estado;
-    if (estado !== "cancelada" && estado !== "recogida") pendientes++;
+    const estado = normalizarEstadoGestion(item.estado);
+    if (isPorEntregar(item)) pendientes++;
     if (estado === "recogida") recogidas++;
     if (
       toFechaISO(item.fecha_entrega) === hoy &&

@@ -17,6 +17,7 @@ import {
   ESTADOS_GESTION_ORDENES,
   hoyISO,
 } from "../estados.js";
+import { buildSolicitudesStats } from "../solicitudes-filter.js";
 
 const BUSCAR_DEBOUNCE_MS = 350;
 
@@ -51,28 +52,24 @@ export async function renderOrdenes(container, topbar) {
     };
   }
 
-  async function loadStats() {
-    try {
-      const { data } = await api.getSolicitudesStats();
-      if (!statsEl) return;
-      statsEl.innerHTML = `
-        <div class="stats-grid">
-          <div class="stat">
-            <div class="stat-label">Pendientes de entregar</div>
-            <div class="stat-value">${data?.pendientes ?? 0}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Entregas hoy</div>
-            <div class="stat-value">${data?.entregas_hoy ?? 0}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Recogidas</div>
-            <div class="stat-value">${data?.recogidas ?? 0}</div>
-          </div>
-        </div>`;
-    } catch {
-      /* stats opcionales; no bloquear la lista */
-    }
+  function paintStats() {
+    if (!statsEl) return;
+    const stats = buildSolicitudesStats(items, hoyISO());
+    statsEl.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-label">Pendientes de entregar</div>
+          <div class="stat-value">${stats.pendientes}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Entregas hoy</div>
+          <div class="stat-value">${stats.entregas_hoy}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Recogidas</div>
+          <div class="stat-value">${stats.recogidas}</div>
+        </div>
+      </div>`;
   }
 
   function setListLoading() {
@@ -86,7 +83,9 @@ export async function renderOrdenes(container, topbar) {
 
     const filters = readFilters();
     if (filters.desde && filters.hasta && filters.desde > filters.hasta) {
+      items = [];
       loading = false;
+      paintStats();
       listEl.innerHTML = `<div class="empty">La fecha "Desde" no puede ser posterior a "Hasta".</div>`;
       return;
     }
@@ -97,6 +96,7 @@ export async function renderOrdenes(container, topbar) {
       paintList();
     } catch (err) {
       items = [];
+      paintStats();
       listEl.innerHTML = `
         <div class="card empty">
           <strong>No se pudieron cargar las ordenes</strong>
@@ -111,11 +111,9 @@ export async function renderOrdenes(container, topbar) {
     }
   }
 
-  async function refreshAll() {
-    await Promise.all([loadStats(), loadList()]);
-  }
-
   function paintList() {
+    paintStats();
+
     if (!items.length) {
       listEl.innerHTML = `<div class="empty">No hay ordenes con esos filtros.</div>`;
       return;
@@ -167,11 +165,8 @@ export async function renderOrdenes(container, topbar) {
         }
         try {
           await api.updateSolicitud(id, { estado: nuevo });
-          const item = items.find((i) => i.id === id);
-          if (item) item.estado = nuevo;
-          e.target.dataset.estadoActual = nuevo;
           window.showToast?.("Estado actualizado", "success");
-          await refreshAll();
+          await loadList();
         } catch (err) {
           e.target.value = prev;
           window.showToast?.(err.message, "error");
@@ -198,7 +193,7 @@ export async function renderOrdenes(container, topbar) {
 
   statsEl.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
   setListLoading();
-  await refreshAll();
+  await loadList();
 }
 
 function buildShell(hoy) {

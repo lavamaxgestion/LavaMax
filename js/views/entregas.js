@@ -11,6 +11,7 @@ import {
   ESTADOS_GESTION_ENTREGA,
   hoyISO,
   isEntregaDelDia,
+  isPorEntregar,
 } from "../estados.js";
 
 let entregaDialogBound = false;
@@ -35,11 +36,6 @@ export async function renderEntregas(container, topbar) {
         <p>${escapeHtml(err.message)}</p>
       </div>`;
   }
-}
-
-function isPorEntregar(item) {
-  const e = item.estado;
-  return e === "pendiente" || e === "confirmada";
 }
 
 function isEntregadaHoy(item) {

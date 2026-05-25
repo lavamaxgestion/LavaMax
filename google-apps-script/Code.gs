@@ -236,8 +236,8 @@ function buildSolicitudesStats(rows) {
   var recogidas = 0;
 
   rows.forEach(function (r) {
-    var estado = r.estado;
-    if (estado !== "cancelada" && estado !== "recogida") pendientes++;
+    var estado = String(r.estado || "").trim().toLowerCase();
+    if (estado === "pendiente" || estado === "confirmada") pendientes++;
     if (estado === "recogida") recogidas++;
     if (
       normalizeFechaISO(r.fecha_entrega) === hoy &&
