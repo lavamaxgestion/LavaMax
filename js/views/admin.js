@@ -410,7 +410,7 @@ function renderCrudTable(container, cfg) {
           .join("")}
         <div class="form-actions field-full">
           <button type="button" class="btn btn-ghost" id="crud-reset">Limpiar</button>
-          <button type="submit" class="btn btn-primary">Guardar</button>
+          <button type="submit" class="btn btn-primary" id="crud-submit">Guardar</button>
         </div>
       </form>
       <div class="table-wrap">
@@ -424,6 +424,14 @@ function renderCrudTable(container, cfg) {
 
   const tbody = document.getElementById("crud-tbody");
   const form = document.getElementById("crud-form");
+  const submitBtn = document.getElementById("crud-submit");
+  const submitLabel = submitBtn?.textContent || "Guardar";
+
+  function resetSubmitBtn() {
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = submitLabel;
+  }
 
   function refresh() {
     tbody.innerHTML = items
@@ -473,6 +481,13 @@ function renderCrudTable(container, cfg) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (submitBtn?.disabled) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Guardando...";
+    }
+
     const fd = new FormData(form);
     const payload = { id: fd.get("id") || undefined };
     fields.forEach((f) => {
@@ -486,9 +501,11 @@ function renderCrudTable(container, cfg) {
       else items.push(saved);
       form.reset();
       document.getElementById("crud-id").value = "";
+      resetSubmitBtn();
       refresh();
       window.showToast?.("Guardado", "success");
     } catch (e) {
+      resetSubmitBtn();
       window.showToast?.(e.message, "error");
     }
   });
@@ -496,6 +513,7 @@ function renderCrudTable(container, cfg) {
   document.getElementById("crud-reset").addEventListener("click", () => {
     form.reset();
     document.getElementById("crud-id").value = "";
+    resetSubmitBtn();
   });
 
   refresh();
