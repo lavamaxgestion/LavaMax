@@ -6,6 +6,7 @@ import {
   formatDuracionAlquiler,
   isRecogidaVencida,
 } from "../api.js";
+import { getFechaHoraRecogida } from "../alquiler.js";
 import {
   ESTADOS_PAGO,
   ESTADO_PAGO_DEFAULT,
@@ -13,13 +14,14 @@ import {
   saldoPendiente,
   pagoBadgeClass,
   normalizeSolicitudPago,
-  isOrdenPagada,
+  buildPagosStats,
   isOrdenVisibleEnPagos,
+  tieneSaldoPorCobrar,
+  isOrdenCobradaCompleta,
   normalizarEstadoPago,
 } from "../finanzas.js";
 import {
   ESTADOS_GESTION,
-  isOrdenEnRuta,
   normalizarEstadoGestion,
   puedeCambiarGestionEnPagos,
   esTransicionRecogidaEnPagos,
@@ -27,6 +29,27 @@ import {
 
 let pagoDialogBound = false;
 let modalContext = null;
+
+/** Prioridad en Por cobrar: recogida con saldo primero, luego entregada, confirmada. */
+function sortPorCobrar(items) {
+  function prioridad(item) {
+    const eg = normalizarEstadoGestion(item.estado);
+    if (eg === "recogida") return 0;
+    if (eg === "entregada") return 1;
+    if (eg === "confirmada") return 2;
+    return 3;
+  }
+
+  return [...items].sort((a, b) => {
+    const pa = prioridad(a);
+    const pb = prioridad(b);
+    if (pa !== pb) return pa - pb;
+    const ra = getFechaHoraRecogida(a)?.getTime() ?? 0;
+    const rb = getFechaHoraRecogida(b)?.getTime() ?? 0;
+    if (ra !== rb) return ra - rb;
+    return saldoPendiente(b) - saldoPendiente(a);
+  });
+}
 
 function setupViewTabs(container, panels) {
   const tabs = container.querySelectorAll(".report-tab");
@@ -69,32 +92,26 @@ export async function renderPagos(container) {
 function renderPagosList(container, items) {
   setupPagoDialog();
 
-  const enRuta = items.filter((i) => isOrdenEnRuta(i));
-  const cobradoTotal = items.reduce((s, i) => s + montoCobrado(i), 0);
-  const porCobrar = enRuta.reduce((s, i) => s + saldoPendiente(i), 0);
-  const pendientesPago = items.filter(
-    (i) => isOrdenEnRuta(i) && !isOrdenPagada(i)
-  ).length;
-  const pagadasCount = items.filter((i) => isOrdenPagada(i)).length;
-  const listosRecoger = items.filter((i) => isRecogidaVencida(i)).length;
+  const stats = buildPagosStats(items);
 
   container.innerHTML = `
     <div class="stats-grid pagos-stats">
       <div class="stat">
         <div class="stat-label">Por cobrar</div>
-        <div class="stat-value stat-value-por-cobrar" id="pagos-stat-por-cobrar">${formatMoney(porCobrar)}</div>
+        <div class="stat-value stat-value-por-cobrar" id="pagos-stat-por-cobrar">${formatMoney(stats.por_cobrar)}</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Cobrado (en ruta)</div>
-        <div class="stat-value stat-value-ingresos" id="pagos-stat-cobrado">${formatMoney(cobradoTotal)}</div>
+        <div class="stat-label">Cobrado</div>
+        <div class="stat-value stat-value-ingresos" id="pagos-stat-cobrado">${formatMoney(stats.cobrado_total)}</div>
+        <div class="stat-hint" id="pagos-stat-cobrado-detalle">En ruta ${formatMoney(stats.cobrado_en_ruta)} · Recogidas ${formatMoney(stats.cobrado_recogidas)}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Pendientes de pago</div>
-        <div class="stat-value" id="pagos-stat-pendientes">${pendientesPago}</div>
+        <div class="stat-value" id="pagos-stat-pendientes">${stats.pendientes_pago}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Listos para recoger</div>
-        <div class="stat-value" id="pagos-stat-recoger">${listosRecoger}</div>
+        <div class="stat-value" id="pagos-stat-recoger">${stats.listos_recoger}</div>
       </div>
     </div>
 
@@ -102,20 +119,20 @@ function renderPagosList(container, items) {
       <h2 style="margin:0 0 0.35rem">Cobros en recogida</h2>
       <nav class="report-tabs" role="tablist" aria-label="Cobros">
         <button type="button" class="report-tab active" role="tab" aria-selected="true" data-tab="cobrar" id="pagos-tab-cobrar">
-          Por cobrar <span class="report-tab-count" id="pagos-count-cobrar">${pendientesPago}</span>
+          Por cobrar <span class="report-tab-count" id="pagos-count-cobrar">${stats.count_por_cobrar}</span>
         </button>
         <button type="button" class="report-tab" role="tab" aria-selected="false" data-tab="pagadas" id="pagos-tab-pagadas">
-          Ya pagadas <span class="report-tab-count" id="pagos-count-pagadas">${pagadasCount}</span>
+          Ya pagadas <span class="report-tab-count" id="pagos-count-pagadas">${stats.count_ya_pagadas}</span>
         </button>
       </nav>
       <div id="pagos-panel-cobrar" class="report-panel" role="tabpanel" aria-labelledby="pagos-tab-cobrar">
-        <p class="hint report-rango-hint">Ordenado por recogida (la mas proxima primero). Registra el cobro al recoger la lavadora.</p>
+        <p class="hint report-rango-hint">Saldo pendiente primero (recogidas con pago parcial al inicio). Luego el resto por fecha de recogida.</p>
         <div class="filters">
           <label class="field">
             <span>Gestion</span>
             <select id="filter-gestion">
-              <option value="">Todas en ruta</option>
-              ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada")
+              <option value="">Todas con saldo</option>
+              ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada" || e === "recogida")
                 .map((e) => `<option value="${e}">${e}</option>`)
                 .join("")}
             </select>
@@ -155,15 +172,15 @@ function renderPagosList(container, items) {
   const countPagadas = document.getElementById("pagos-count-pagadas");
 
   function updateStats() {
-    const enRuta = items.filter((i) => isOrdenEnRuta(i));
-    const cobrado = items.reduce((s, i) => s + montoCobrado(i), 0);
-    const saldo = enRuta.reduce((s, i) => s + saldoPendiente(i), 0);
-    const pend = enRuta.filter((i) => !isOrdenPagada(i)).length;
-    const recoger = enRuta.filter((i) => isRecogidaVencida(i)).length;
-    document.getElementById("pagos-stat-por-cobrar").textContent = formatMoney(saldo);
-    document.getElementById("pagos-stat-cobrado").textContent = formatMoney(cobrado);
-    document.getElementById("pagos-stat-pendientes").textContent = String(pend);
-    document.getElementById("pagos-stat-recoger").textContent = String(recoger);
+    const s = buildPagosStats(items);
+    document.getElementById("pagos-stat-por-cobrar").textContent = formatMoney(s.por_cobrar);
+    document.getElementById("pagos-stat-cobrado").textContent = formatMoney(s.cobrado_total);
+    const detalle = document.getElementById("pagos-stat-cobrado-detalle");
+    if (detalle) {
+      detalle.textContent = `En ruta ${formatMoney(s.cobrado_en_ruta)} · Recogidas ${formatMoney(s.cobrado_recogidas)}`;
+    }
+    document.getElementById("pagos-stat-pendientes").textContent = String(s.pendientes_pago);
+    document.getElementById("pagos-stat-recoger").textContent = String(s.listos_recoger);
   }
 
   function renderItemSummary(item) {
@@ -172,6 +189,9 @@ function renderPagosList(container, items) {
     const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
     const eg = item.estado || "pendiente";
     const vencida = isRecogidaVencida(item);
+    const saldoPend = saldo > 0;
+    const recogidaConSaldo =
+      normalizarEstadoGestion(eg) === "recogida" && saldoPend;
 
     return {
       cobrado,
@@ -179,6 +199,8 @@ function renderPagosList(container, items) {
       ep,
       eg,
       vencida,
+      saldoPend,
+      recogidaConSaldo,
       html: `
         <strong>${escapeHtml(item.cliente_nombre)}</strong>
         <div class="pagos-sub">${escapeHtml(item.cliente_telefono || "")}</div>
@@ -188,6 +210,7 @@ function renderPagosList(container, items) {
       badges: `
         <span class="badge badge-${eg}">${escapeHtml(eg)}</span>
         <span class="badge ${pagoBadgeClass(ep)}">${escapeHtml(ep)}</span>
+        ${recogidaConSaldo ? '<span class="badge badge-urgente">Cobrar saldo</span>' : ""}
         ${vencida ? '<span class="badge badge-urgente">Recoger ya</span>' : ""}
       `,
       money: `
@@ -199,10 +222,9 @@ function renderPagosList(container, items) {
   }
 
   function updateTabCounts() {
-    const nCobrar = items.filter((i) => isOrdenEnRuta(i) && !isOrdenPagada(i)).length;
-    const nPagadas = items.filter((i) => isOrdenPagada(i)).length;
-    if (countCobrar) countCobrar.textContent = String(nCobrar);
-    if (countPagadas) countPagadas.textContent = String(nPagadas);
+    const s = buildPagosStats(items);
+    if (countCobrar) countCobrar.textContent = String(s.count_por_cobrar);
+    if (countPagadas) countPagadas.textContent = String(s.count_ya_pagadas);
   }
 
   function mountList(targetEl, filtered, emptyMsg) {
@@ -215,7 +237,7 @@ function renderPagosList(container, items) {
       .map((item) => {
         const s = renderItemSummary(item);
         return `
-        <article class="pagos-card ${s.vencida ? "pagos-card-listo" : ""}" data-id="${item.id}">
+        <article class="pagos-card ${s.vencida ? "pagos-card-listo" : ""} ${s.recogidaConSaldo ? "pagos-card-cobrar-prioridad" : ""}" data-id="${item.id}">
           <header class="pagos-card-header">
             <div>
               <div class="pagos-card-recogida">${formatFechaHoraRecogida(item)}</div>
@@ -237,7 +259,7 @@ function renderPagosList(container, items) {
       .map((item) => {
         const s = renderItemSummary(item);
         return `
-        <tr data-id="${item.id}" class="${s.vencida ? "pagos-row-listo" : ""}">
+        <tr data-id="${item.id}" class="${s.vencida ? "pagos-row-listo" : ""} ${s.recogidaConSaldo ? "pagos-row-cobrar-prioridad" : ""}">
           <td data-label="Recogida">
             <strong>${formatFechaHoraRecogida(item)}</strong>
             ${s.vencida ? '<span class="badge badge-urgente">Recoger ya</span>' : ""}
@@ -291,10 +313,7 @@ function renderPagosList(container, items) {
   }
 
   function paintCobrar() {
-    let filtered = sortByRecogida(
-      items.filter((i) => isOrdenEnRuta(i) && !isOrdenPagada(i)),
-      { descendente: false }
-    );
+    let filtered = sortPorCobrar(items.filter((i) => tieneSaldoPorCobrar(i)));
     const eg = filterGestion.value;
     const ep = filterPago.value;
     const q = filterBuscar.value.trim().toLowerCase();
@@ -319,7 +338,7 @@ function renderPagosList(container, items) {
 
   function paintPagadas() {
     let filtered = sortByRecogida(
-      items.filter((i) => isOrdenPagada(i)),
+      items.filter((i) => isOrdenCobradaCompleta(i)),
       { descendente: false }
     );
     const q = filterPagadasBuscar.value.trim().toLowerCase();
@@ -348,8 +367,8 @@ function renderPagosList(container, items) {
 
   async function guardarSolicitud(id, payload, item, mensaje) {
     try {
-      await api.updateSolicitud(id, payload);
-      Object.assign(item, payload);
+      const res = await api.updateSolicitud(id, payload);
+      Object.assign(item, res.data || payload);
       normalizeSolicitudPago(item);
       window.showToast?.(mensaje, "success");
       return true;
@@ -492,8 +511,11 @@ function setupPagoDialog() {
         window.showToast?.("Indica el monto pagado", "error");
         return;
       }
-      payload.monto_pagado = monto;
-    } else if (nuevoPago !== snapshot.estado_pago || snapshot.estado_pago === "pago parcial") {
+      const montoPrevio = Number(snapshot.monto_pagado) || 0;
+      if (nuevoPago !== snapshot.estado_pago || monto !== montoPrevio) {
+        payload.monto_pagado = monto;
+      }
+    } else if (nuevoPago !== snapshot.estado_pago) {
       payload.monto_pagado = "";
     }
 

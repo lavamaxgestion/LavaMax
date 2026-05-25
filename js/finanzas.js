@@ -1,5 +1,5 @@
-import { normalizeSolicitudAlquiler } from "./alquiler.js";
-import { normalizarEstadoGestion } from "./estados.js";
+import { normalizeSolicitudAlquiler, isRecogidaVencida } from "./alquiler.js";
+import { isOrdenEnRuta, normalizarEstadoGestion } from "./estados.js";
 
 export const ESTADOS_PAGO = [
   "pago pendiente",
@@ -69,18 +69,53 @@ export function saldoPendiente(solicitud) {
   return Math.max(0, total - montoCobrado(solicitud));
 }
 
-/** Cobro registrado (efectivo, transferencia o parcial). */
-export function isOrdenPagada(solicitud) {
-  return normalizarEstadoPago(solicitud.estado_pago) !== ESTADO_PAGO_DEFAULT;
+/** Cobro totalmente saldado (sin saldo pendiente). */
+export function isOrdenCobradaCompleta(solicitud) {
+  return isOrdenVisibleEnPagos(solicitud) && saldoPendiente(solicitud) === 0;
 }
 
-/** Visible en Pagos: en ruta o ya recogida con pago registrado. */
+/** Aun debe dinero (incluye recogida con pago parcial u otros dias). */
+export function tieneSaldoPorCobrar(solicitud) {
+  return isOrdenVisibleEnPagos(solicitud) && saldoPendiente(solicitud) > 0;
+}
+
+/** Alias: ya pagadas = cobro completo. */
+export function isOrdenPagada(solicitud) {
+  return isOrdenCobradaCompleta(solicitud);
+}
+
+/** Visible en Pagos: en ruta o recogida (con o sin saldo). */
 export function isOrdenVisibleEnPagos(solicitud) {
   const e = normalizarEstadoGestion(solicitud.estado);
   if (e === "cancelada" || e === "pendiente") return false;
-  if (e === "confirmada" || e === "entregada") return true;
-  if (e === "recogida") return isOrdenPagada(solicitud);
+  if (e === "confirmada" || e === "entregada" || e === "recogida") return true;
   return false;
+}
+
+/** Totales de las tarjetas superiores en la vista Pagos. */
+export function buildPagosStats(items) {
+  const visibles = (items || []).filter(isOrdenVisibleEnPagos);
+  const porCobrarItems = visibles.filter(tieneSaldoPorCobrar);
+  const enRutaItems = visibles.filter(isOrdenEnRuta);
+  const recogidaItems = visibles.filter(
+    (i) => normalizarEstadoGestion(i.estado) === "recogida"
+  );
+
+  const cobrado_en_ruta = enRutaItems.reduce((s, i) => s + montoCobrado(i), 0);
+  const cobrado_recogidas = recogidaItems.reduce((s, i) => s + montoCobrado(i), 0);
+
+  return {
+    por_cobrar: porCobrarItems.reduce((s, i) => s + saldoPendiente(i), 0),
+    cobrado_total: visibles.reduce((s, i) => s + montoCobrado(i), 0),
+    cobrado_en_ruta,
+    cobrado_recogidas,
+    pendientes_pago: porCobrarItems.filter(
+      (i) => normalizarEstadoPago(i.estado_pago) === ESTADO_PAGO_DEFAULT
+    ).length,
+    count_por_cobrar: porCobrarItems.length,
+    count_ya_pagadas: visibles.filter(isOrdenCobradaCompleta).length,
+    listos_recoger: enRutaItems.filter(isRecogidaVencida).length,
+  };
 }
 
 export function buildReporteFinanciero(solicitudes, desde, hasta) {
