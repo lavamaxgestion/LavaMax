@@ -49,24 +49,7 @@ export function mountThemeSwitch(container) {
   syncThemeControls(getStoredTheme());
 }
 
-function syncLoginThemeSwitch() {
-  const loginHost = document.getElementById("theme-switch-login");
-  const loginScreen = document.getElementById("login-screen");
-  if (!loginHost || !loginScreen) return;
-  loginHost.hidden = loginScreen.hidden;
-}
-
 export function initTheme() {
   applyTheme(getStoredTheme());
   mountThemeSwitch(document.getElementById("theme-switch"));
-  mountThemeSwitch(document.getElementById("theme-switch-login"));
-  syncLoginThemeSwitch();
-
-  const loginScreen = document.getElementById("login-screen");
-  if (loginScreen) {
-    new MutationObserver(syncLoginThemeSwitch).observe(loginScreen, {
-      attributes: true,
-      attributeFilter: ["hidden"],
-    });
-  }
 }

@@ -298,19 +298,6 @@ body.sidebar-open {
   margin-bottom: 0.35rem;
 }
 
-.theme-switch-wrap--login {
-  position: fixed;
-  top: max(1rem, env(safe-area-inset-top));
-  right: max(1rem, env(safe-area-inset-right));
-  z-index: 110;
-  margin: 0;
-  padding: 0.5rem;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-}
-
 .theme-switch-label {
   font-size: 0.7rem;
   text-transform: uppercase;
