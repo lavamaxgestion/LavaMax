@@ -1,19 +1,77 @@
 :root {
+  --radius: 12px;
+  --sidebar-w: 260px;
+  --primary: #3b9eff;
+  --primary-hover: #5cb0ff;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0f1419;
   --surface: #1a2332;
   --surface-2: #243044;
   --border: #2d3f56;
   --text: #e8eef7;
   --muted: #8fa3bf;
-  --primary: #3b9eff;
-  --primary-hover: #5cb0ff;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --radius: 12px;
+  --on-primary: #ffffff;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --sidebar-w: 260px;
-  font-family: "DM Sans", system-ui, sans-serif;
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --topbar-bg: rgba(26, 35, 50, 0.85);
+  --dialog-backdrop: rgba(0, 0, 0, 0.6);
+  --row-hover: rgba(59, 158, 255, 0.05);
+  --accent-hover: rgba(59, 158, 255, 0.12);
+  --mock-badge-bg: rgba(251, 191, 36, 0.2);
+  --mock-badge-border: rgba(251, 191, 36, 0.35);
+  --boot-error-bg: rgba(251, 191, 36, 0.12);
+  --pagos-cobrar-bg: rgba(255, 193, 7, 0.06);
+  --pagos-cambios-bg: rgba(59, 158, 255, 0.08);
+  --pagos-cambios-border: rgba(59, 158, 255, 0.2);
+  --report-tab-hover: rgba(255, 255, 255, 0.04);
+  --report-tab-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  --report-tab-count-active: rgba(59, 158, 255, 0.2);
+  --badge-recogida-bg: rgba(148, 163, 184, 0.2);
+  --badge-recogida-text: #cbd5e1;
+  --badge-parcial-text: #c4b5fd;
+  --badge-urgente-bg: rgba(248, 113, 113, 0.2);
+  --badge-urgente-text: #fca5a5;
+  --pin-enter-text: #0b1220;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f0f4f9;
+  --surface: #ffffff;
+  --surface-2: #e8eef5;
+  --border: #c5d0e0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --on-primary: #ffffff;
+  --shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  --backdrop: rgba(15, 23, 42, 0.35);
+  --topbar-bg: rgba(255, 255, 255, 0.9);
+  --dialog-backdrop: rgba(15, 23, 42, 0.45);
+  --row-hover: rgba(59, 158, 255, 0.08);
+  --accent-hover: rgba(59, 158, 255, 0.14);
+  --mock-badge-bg: rgba(251, 191, 36, 0.25);
+  --mock-badge-border: rgba(180, 130, 0, 0.35);
+  --boot-error-bg: rgba(251, 191, 36, 0.18);
+  --pagos-cobrar-bg: rgba(255, 193, 7, 0.14);
+  --pagos-cambios-bg: rgba(59, 158, 255, 0.1);
+  --pagos-cambios-border: rgba(59, 158, 255, 0.28);
+  --report-tab-hover: rgba(15, 23, 42, 0.05);
+  --report-tab-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  --report-tab-count-active: rgba(59, 158, 255, 0.18);
+  --badge-recogida-bg: rgba(100, 116, 139, 0.18);
+  --badge-recogida-text: #475569;
+  --badge-parcial-text: #6d28d9;
+  --badge-urgente-bg: rgba(248, 113, 113, 0.18);
+  --badge-urgente-text: #b91c1c;
+  --pin-enter-text: #0b1220;
 }
 
 *,
@@ -51,7 +109,7 @@ body.sidebar-open {
   position: fixed;
   inset: 0;
   z-index: 35;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--backdrop);
   backdrop-filter: blur(2px);
 }
 
@@ -175,7 +233,7 @@ body.sidebar-open {
   padding: 0.75rem 1rem;
   padding-top: max(0.75rem, env(safe-area-inset-top));
   border-bottom: 1px solid var(--border);
-  background: rgba(26, 35, 50, 0.85);
+  background: var(--topbar-bg);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -212,9 +270,9 @@ body.sidebar-open {
   letter-spacing: 0.04em;
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
-  background: rgba(251, 191, 36, 0.2);
+  background: var(--mock-badge-bg);
   color: var(--warning);
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  border: 1px solid var(--mock-badge-border);
 }
 
 .content {
@@ -228,9 +286,71 @@ body.sidebar-open {
   padding: 1.25rem 1.5rem;
   border-radius: var(--radius);
   border: 1px solid var(--warning);
-  background: rgba(251, 191, 36, 0.12);
+  background: var(--boot-error-bg);
   color: var(--text);
   max-width: 720px;
+}
+
+.theme-switch-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.theme-switch-wrap--login {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 110;
+  margin: 0;
+  padding: 0.5rem;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.theme-switch-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 0 0.15rem;
+}
+
+.theme-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.theme-option {
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  min-height: 2rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.theme-option:hover {
+  color: var(--text);
+}
+
+.theme-option.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--report-tab-shadow);
 }
 
 .boot-error strong {
@@ -290,7 +410,7 @@ body.sidebar-open {
 
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 
 .btn-primary:hover {
@@ -402,7 +522,7 @@ th {
 }
 
 tr:hover td {
-  background: rgba(59, 158, 255, 0.05);
+  background: var(--row-hover);
 }
 
 .badge {
@@ -429,8 +549,8 @@ tr:hover td {
 }
 
 .badge-recogida {
-  background: rgba(148, 163, 184, 0.2);
-  color: #cbd5e1;
+  background: var(--badge-recogida-bg);
+  color: var(--badge-recogida-text);
 }
 
 .badge-cancelada {
@@ -455,12 +575,12 @@ tr:hover td {
 
 .badge-pago-parcial {
   background: rgba(167, 139, 250, 0.15);
-  color: #c4b5fd;
+  color: var(--badge-parcial-text);
 }
 
 .badge-urgente {
-  background: rgba(248, 113, 113, 0.2);
-  color: #fca5a5;
+  background: var(--badge-urgente-bg);
+  color: var(--badge-urgente-text);
   margin-left: 0.35rem;
 }
 
@@ -545,7 +665,7 @@ tr:hover td {
 
 .autocomplete-item:hover,
 .autocomplete-item[aria-selected="true"] {
-  background: rgba(59, 158, 255, 0.12);
+  background: var(--accent-hover);
   color: var(--text);
 }
 
@@ -614,7 +734,7 @@ tr:hover td {
 .pagos-card-cobrar-prioridad,
 .pagos-row-cobrar-prioridad {
   border-left: 4px solid var(--warning);
-  background: rgba(255, 193, 7, 0.06);
+  background: var(--pagos-cobrar-bg);
 }
 
 .pagos-card-recogida {
@@ -713,9 +833,9 @@ tr:hover td {
   margin-top: 0.75rem;
   margin-bottom: 0;
   padding: 0.65rem 0.75rem;
-  background: rgba(59, 158, 255, 0.08);
+  background: var(--pagos-cambios-bg);
   border-radius: 8px;
-  border: 1px solid rgba(59, 158, 255, 0.2);
+  border: 1px solid var(--pagos-cambios-border);
   color: var(--text);
 }
 
@@ -860,7 +980,7 @@ tr:hover td {
 }
 
 .dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--dialog-backdrop);
 }
 
 .dialog form {
@@ -907,13 +1027,13 @@ tr:hover td {
 
 .report-tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--report-tab-hover);
 }
 
 .report-tab.active {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--report-tab-shadow);
 }
 
 .report-tab-count {
@@ -928,7 +1048,7 @@ tr:hover td {
 }
 
 .report-tab.active .report-tab-count {
-  background: rgba(59, 158, 255, 0.2);
+  background: var(--report-tab-count-active);
   color: var(--primary);
 }
 
@@ -1341,7 +1461,7 @@ tr:hover td {
 .pin-key-enter {
   background: var(--primary);
   border-color: var(--primary);
-  color: #0b1220;
+  color: var(--pin-enter-text);
 }
 
 .pin-key-enter:hover:not(:disabled) {

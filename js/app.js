@@ -1,4 +1,5 @@
 import { getApiUrl, setApiConfig, isMockMode } from "./api.js";
+import { initTheme } from "./theme.js";
 import {
   getSession,
   clearSession,
@@ -40,6 +41,8 @@ const sidebarBackdrop = document.getElementById("sidebar-backdrop");
 const menuToggle = document.getElementById("menu-toggle");
 const toast = document.getElementById("toast");
 const dialogApi = document.getElementById("dialog-api");
+
+initTheme();
 
 function setSidebarOpen(open) {
   sidebar?.classList.toggle("open", open);

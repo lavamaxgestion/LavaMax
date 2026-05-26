@@ -7,11 +7,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      var k = "lavarent_theme";
+      var t = localStorage.getItem(k);
+      if (t !== "light" && t !== "dark") t = "dark";
+      document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.style.colorScheme = t === "light" ? "light" : "dark";
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <div id="toast" class="toast" hidden role="status"></div>
 
+  <div id="theme-switch-login" class="theme-switch-wrap theme-switch-wrap--login" hidden></div>
   <div id="login-screen" class="login-screen" hidden></div>
 
   <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
@@ -60,6 +70,7 @@
       </div>
 
       <div class="sidebar-footer">
+        <div id="theme-switch" class="theme-switch-wrap"></div>
         <div id="session-user" class="session-user" hidden>
           <strong class="session-name"></strong>
           <small class="session-role"></small>
