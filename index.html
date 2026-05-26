@@ -159,11 +159,30 @@
   <script>
     (function () {
       var el = document.getElementById("boot-error");
+      var dismissTimer;
+      var BOOT_ERROR_DISMISS_MS = 5000;
+
+      function hideBootError() {
+        if (!el) return;
+        clearTimeout(dismissTimer);
+        el.hidden = true;
+        el.innerHTML = "";
+      }
+
       function showBootError(html) {
         if (!el) return;
+        clearTimeout(dismissTimer);
         el.hidden = false;
         el.innerHTML = html;
+        dismissTimer = setTimeout(hideBootError, BOOT_ERROR_DISMISS_MS);
       }
+
+      window.dismissBootError = hideBootError;
+      window.markAppBooted = function () {
+        window.__appBooted = true;
+        hideBootError();
+      };
+
       if (location.protocol === "file:") {
         showBootError(
           "<strong>Abre la app con un servidor local</strong>" +
@@ -185,8 +204,16 @@
         }
       });
       setTimeout(function () {
+        if (window.__appBooted) return;
         var content = document.getElementById("content");
-        if (content && !content.innerHTML.trim()) {
+        var loginScreen = document.getElementById("login-screen");
+        var hasContent = content && content.innerHTML.trim();
+        var hasLogin =
+          loginScreen &&
+          !loginScreen.hidden &&
+          loginScreen.innerHTML.trim();
+        if (hasContent || hasLogin) return;
+        if (content) {
           showBootError(
             "<strong>La aplicacion no inicio</strong>" +
               "<p>Comprueba la consola del navegador (F12) y que <code>js/app.js</code> cargue correctamente.</p>"

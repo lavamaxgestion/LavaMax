@@ -267,3 +267,5 @@ if (getSession()) {
 } else {
   showLogin();
 }
+
+window.markAppBooted?.();
