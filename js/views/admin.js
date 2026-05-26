@@ -7,8 +7,9 @@ import {
   pagoBadgeClass,
   debeMostrarBadgePago,
   normalizarEstadoPago,
+  cuentaEnCarteraReporteAdmin,
 } from "../finanzas.js";
-import { ESTADOS_GESTION } from "../estados.js";
+import { ESTADOS_GESTION, normalizarEstadoGestion } from "../estados.js";
 
 function esc(s) {
   const d = document.createElement("div");
@@ -207,6 +208,7 @@ function mountPanelCobros(panel, report, rows) {
       <div class="stat"><div class="stat-label">Transferencia</div><div class="stat-value">${report.pagos_transferencia ?? 0}</div></div>
       <div class="stat"><div class="stat-label">Parciales</div><div class="stat-value">${report.pagos_parciales ?? 0}</div></div>
     </div>
+    <p class="hint report-cartera-hint">Por cobrar y Pend. de pago solo incluyen ordenes con gestion <strong>entregada</strong>.</p>
     <div class="filters report-filters">
       <label class="field">
         <span>Estado de pago</span>
@@ -299,7 +301,7 @@ function filtrarFilasReporte(rows, { estadoPago, estadoGestion, buscar }) {
     );
   }
   if (estadoGestion) {
-    f = f.filter((r) => r.estado === estadoGestion);
+    f = f.filter((r) => normalizarEstadoGestion(r.estado) === estadoGestion);
   }
   const q = (buscar || "").trim().toLowerCase();
   if (q) {
@@ -318,6 +320,7 @@ function actualizarStatsCobrosFiltradas(panel, filtered) {
   let pendientes = 0;
   filtered.forEach((r) => {
     ingresos += montoCobrado(r);
+    if (!cuentaEnCarteraReporteAdmin(r)) return;
     porCobrar += saldoPendiente(r);
     if ((normalizarEstadoPago(r.estado_pago) || ESTADO_PAGO_DEFAULT) === ESTADO_PAGO_DEFAULT) {
       pendientes++;

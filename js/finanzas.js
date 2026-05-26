@@ -84,6 +84,11 @@ export function isOrdenPagada(solicitud) {
   return isOrdenCobradaCompleta(solicitud);
 }
 
+/** Reportes admin: cartera (por cobrar / pend. pago) solo si ya fue entregada. */
+export function cuentaEnCarteraReporteAdmin(solicitud) {
+  return normalizarEstadoGestion(solicitud.estado) === "entregada";
+}
+
 /** Visible en Pagos: en ruta o recogida (con o sin saldo). */
 export function isOrdenVisibleEnPagos(solicitud) {
   const e = normalizarEstadoGestion(solicitud.estado);
@@ -147,9 +152,10 @@ export function buildReporteFinanciero(solicitudes, desde, hasta) {
     const saldo = saldoPendiente(r);
 
     ingresos_cobrados += cobrado;
-    por_cobrar += saldo;
-
-    if (ep === ESTADO_PAGO_DEFAULT) pendientes_pago++;
+    if (cuentaEnCarteraReporteAdmin(r)) {
+      por_cobrar += saldo;
+      if (ep === ESTADO_PAGO_DEFAULT) pendientes_pago++;
+    }
     if (ep === "pago efectivo") pagos_efectivo++;
     if (ep === "pago transferencia") pagos_transferencia++;
     if (ep === "pago parcial") pagos_parciales++;

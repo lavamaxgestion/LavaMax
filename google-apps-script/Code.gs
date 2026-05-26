@@ -394,9 +394,10 @@ function buildReport(desde, hasta) {
 
     var ep = r.estado_pago || "pago pendiente";
     ingresos_cobrados += montoCobrado(r);
-    por_cobrar += saldoPendiente(r);
-
-    if (ep === "pago pendiente") pendientes_pago++;
+    if (String(r.estado || "").toLowerCase() === "entregada") {
+      por_cobrar += saldoPendiente(r);
+      if (ep === "pago pendiente") pendientes_pago++;
+    }
     if (ep === "pago efectivo") pagos_efectivo++;
     if (ep === "pago transferencia") pagos_transferencia++;
     if (ep === "pago parcial") pagos_parciales++;
