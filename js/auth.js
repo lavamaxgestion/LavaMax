@@ -82,7 +82,10 @@ export function applyNavForRole(rol) {
   }
 
   const btnApi = document.getElementById("btn-config-api");
-  if (btnApi) btnApi.hidden = rol !== "admin";
+  if (btnApi) btnApi.hidden = role !== "admin";
+
+  const btnNotebook = document.getElementById("btn-notebook-ia");
+  if (btnNotebook) btnNotebook.hidden = role !== "admin";
 
   const sessionUser = document.getElementById("session-user");
   const session = getSession();

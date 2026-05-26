@@ -204,6 +204,13 @@ body.sidebar-open {
   color: var(--text);
 }
 
+.nav-link-external::after {
+  content: "↗";
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.55;
+}
+
 .nav-icon {
   width: 1.5rem;
   text-align: center;
