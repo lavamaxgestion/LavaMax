@@ -141,6 +141,7 @@ function initHeaders(name, sh) {
       "estado",
       "estado_pago",
       "monto_pagado",
+      "fecha_pago",
       "notas",
     ],
     Inventario: ["id", "codigo", "modelo", "capacidad_kg", "estado"],
@@ -156,7 +157,7 @@ function serializeCell(header, value) {
 
   if (value instanceof Date) {
     const tz = Session.getScriptTimeZone();
-    if (header === "fecha_entrega" || header === "fecha_solicitud") {
+    if (header === "fecha_entrega" || header === "fecha_solicitud" || header === "fecha_pago") {
       return Utilities.formatDate(value, tz, "yyyy-MM-dd");
     }
     if (header === "hora_entrega") {
@@ -302,11 +303,32 @@ function appendRow(sheetName, data) {
   return row;
 }
 
+function applyFechaPagoOnSolicitudUpdate(data) {
+  if (data.estado_pago === undefined && data.monto_pagado === undefined) return;
+  if (data.estado_pago !== undefined) {
+    var ep = String(data.estado_pago || "").trim().toLowerCase();
+    if (!ep || ep === "pago pendiente") {
+      data.fecha_pago = "";
+      return;
+    }
+  }
+  if (data.fecha_pago === undefined) {
+    data.fecha_pago = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd"
+    );
+  }
+}
+
 function updateRow(sheetName, id, data) {
   const sh = getSheet(sheetName);
   const values = sh.getDataRange().getValues();
   const headers = values[0];
   const idCol = headers.indexOf("id");
+  if (sheetName === SHEETS.solicitudes) {
+    applyFechaPagoOnSolicitudUpdate(data);
+  }
   for (var r = 1; r < values.length; r++) {
     if (String(values[r][idCol]) === String(id)) {
       headers.forEach(function (h, c) {

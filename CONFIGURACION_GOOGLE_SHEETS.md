@@ -40,7 +40,7 @@ Copia cada fila en la **fila 1** de su pestaña. La fila 1 es siempre los nombre
 ### Pestaña `Solicitudes`
 
 ```
-id | fecha_solicitud | cliente_nombre | cliente_telefono | direccion | fecha_entrega | hora_entrega | lavadora_id | lavadora_codigo | dias_alquiler | horas_alquiler | tarifa_id | total | estado | estado_pago | monto_pagado | notas
+id | fecha_solicitud | cliente_nombre | cliente_telefono | direccion | fecha_entrega | hora_entrega | lavadora_id | lavadora_codigo | dias_alquiler | horas_alquiler | tarifa_id | total | estado | estado_pago | monto_pagado | fecha_pago | notas
 ```
 
 | Columna | Descripción | Ejemplo |
@@ -61,6 +61,7 @@ id | fecha_solicitud | cliente_nombre | cliente_telefono | direccion | fecha_ent
 | `estado` | Gestión | `pendiente`, `confirmada`, `entregada`, `recogida`, `cancelada` |
 | `estado_pago` | Pago | `pago pendiente`, `pago efectivo`, `pago transferencia`, `pago parcial` |
 | `monto_pagado` | Abono si es parcial | `10000` o vacío |
+| `fecha_pago` | Fecha del cobro (`YYYY-MM-DD`); la app la llena al registrar pago | `2026-05-27` |
 | `notas` | Observaciones | Texto libre |
 
 ### Pestaña `Inventario`

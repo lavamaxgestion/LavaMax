@@ -73,6 +73,7 @@ export function normalizeSolicitudFromSheets(row) {
       row.monto_pagado !== undefined && row.monto_pagado !== null
         ? String(row.monto_pagado)
         : "",
+    fecha_pago: toFechaISO(row.fecha_pago),
   };
 }
 

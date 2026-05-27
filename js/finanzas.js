@@ -1,5 +1,6 @@
-import { combineFechaHoraCO, fechaCivilParaDisplay } from "./fecha-co.js";
-import { normalizeSolicitudAlquiler, isRecogidaVencida } from "./alquiler.js";
+import { combineFechaHoraCO, fechaCivilParaDisplay, fechaEnZonaISO, fechaHoyISO } from "./fecha-co.js";
+import { normalizeSolicitudAlquiler, isRecogidaVencida, getFechaHoraRecogida } from "./alquiler.js";
+import { toFechaISO } from "./sheets-normalize.js";
 import {
   isOrdenEnRuta,
   isOrdenEntregadaAlCliente,
@@ -88,9 +89,73 @@ export function tieneSaldoPorCobrar(solicitud) {
   );
 }
 
+/** Cuenta en la tarjeta Pendientes de pago: sin cobro o abono parcial con saldo. */
+export function isOrdenPendienteDePago(solicitud) {
+  if (!tieneSaldoPorCobrar(solicitud)) return false;
+  const ep = normalizarEstadoPago(solicitud.estado_pago);
+  return ep === ESTADO_PAGO_DEFAULT || ep === "pago parcial";
+}
+
 /** Alias: ya pagadas = cobro completo. */
 export function isOrdenPagada(solicitud) {
   return isOrdenCobradaCompleta(solicitud);
+}
+
+export function toFechaPagoISO(solicitud) {
+  return toFechaISO(solicitud?.fecha_pago);
+}
+
+export function getFechaRecogidaCivilISO(solicitud) {
+  const d = getFechaHoraRecogida(solicitud);
+  return d ? fechaEnZonaISO(d) : "";
+}
+
+/** Fecha en que se registro el cobro (columna fecha_pago o recogida como respaldo). */
+export function getFechaCobroISO(solicitud) {
+  const fp = toFechaPagoISO(solicitud);
+  if (fp) return fp;
+  if (!isOrdenCobradaCompleta(solicitud)) return "";
+  return getFechaRecogidaCivilISO(solicitud);
+}
+
+export function isCobroRegistradoHoy(solicitud, hoy = fechaHoyISO()) {
+  return getFechaCobroISO(solicitud) === hoy;
+}
+
+/** Cobro total saldado y registrado en el dia en curso. */
+export function isOrdenPagadaHoy(solicitud, hoy = fechaHoyISO()) {
+  return isOrdenCobradaCompleta(solicitud) && isCobroRegistradoHoy(solicitud, hoy);
+}
+
+/** Vista Pagos: saldo pendiente o cobro completo registrado hoy. */
+export function isOrdenVisibleEnVistaPagos(solicitud, hoy = fechaHoyISO()) {
+  return (
+    isOrdenVisibleEnPagos(solicitud) &&
+    (tieneSaldoPorCobrar(solicitud) || isOrdenPagadaHoy(solicitud, hoy))
+  );
+}
+
+function esRegistroDeCobro(estadoPago) {
+  return normalizarEstadoPago(estadoPago) !== ESTADO_PAGO_DEFAULT;
+}
+
+/** Al guardar un cobro, fija fecha_pago al dia en curso (o la limpia si vuelve a pendiente). */
+export function enrichPayloadPago(payload, snapshot = {}, hoy = fechaHoyISO()) {
+  const out = { ...payload };
+  const cambioEstado =
+    out.estado_pago !== undefined && out.estado_pago !== snapshot.estado_pago;
+  const cambioMonto =
+    out.monto_pagado !== undefined && out.monto_pagado !== snapshot.monto_pagado;
+
+  if (!cambioEstado && !cambioMonto) return out;
+
+  const epNuevo = cambioEstado ? out.estado_pago : snapshot.estado_pago;
+  if (esRegistroDeCobro(epNuevo) || (cambioMonto && normalizarEstadoPago(epNuevo) === "pago parcial")) {
+    out.fecha_pago = hoy;
+  } else if (cambioEstado && normalizarEstadoPago(epNuevo) === ESTADO_PAGO_DEFAULT) {
+    out.fecha_pago = "";
+  }
+  return out;
 }
 
 /** Reportes admin: cartera (por cobrar / pend. pago) solo si ya fue entregada. */
@@ -107,27 +172,29 @@ export function isOrdenVisibleEnPagos(solicitud) {
 }
 
 /** Totales de las tarjetas superiores en la vista Pagos. */
-export function buildPagosStats(items) {
-  const visibles = (items || []).filter(isOrdenVisibleEnPagos);
+export function buildPagosStats(items, hoy = fechaHoyISO()) {
+  const visibles = (items || []).filter((i) => isOrdenVisibleEnVistaPagos(i, hoy));
   const porCobrarItems = visibles.filter(tieneSaldoPorCobrar);
   const enRutaItems = visibles.filter(isOrdenEnRuta);
-  const recogidaItems = visibles.filter(
-    (i) => normalizarEstadoGestion(i.estado) === "recogida"
-  );
+  const pagadasHoy = visibles.filter((i) => isOrdenPagadaHoy(i, hoy));
 
-  const cobrado_en_ruta = enRutaItems.reduce((s, i) => s + montoCobrado(i), 0);
-  const cobrado_recogidas = recogidaItems.reduce((s, i) => s + montoCobrado(i), 0);
+  let cobrado_hoy = 0;
+  let cobrado_anteriores = 0;
+  visibles.forEach((i) => {
+    const m = montoCobrado(i);
+    if (m <= 0) return;
+    if (isCobroRegistradoHoy(i, hoy)) cobrado_hoy += m;
+    else cobrado_anteriores += m;
+  });
 
   return {
     por_cobrar: porCobrarItems.reduce((s, i) => s + saldoPendiente(i), 0),
-    cobrado_total: visibles.reduce((s, i) => s + montoCobrado(i), 0),
-    cobrado_en_ruta,
-    cobrado_recogidas,
-    pendientes_pago: porCobrarItems.filter(
-      (i) => normalizarEstadoPago(i.estado_pago) === ESTADO_PAGO_DEFAULT
-    ).length,
+    cobrado_hoy,
+    cobrado_anteriores,
+    cobrado_total: cobrado_hoy,
+    pendientes_pago: porCobrarItems.filter(isOrdenPendienteDePago).length,
     count_por_cobrar: porCobrarItems.length,
-    count_ya_pagadas: visibles.filter(isOrdenCobradaCompleta).length,
+    count_ya_pagadas: pagadasHoy.length,
     listos_recoger: enRutaItems.filter(isRecogidaVencida).length,
   };
 }
@@ -196,5 +263,6 @@ export function normalizeSolicitudPago(solicitud) {
   if (solicitud.monto_pagado === undefined || solicitud.monto_pagado === null) {
     solicitud.monto_pagado = "";
   }
+  solicitud.fecha_pago = toFechaPagoISO(solicitud);
   return solicitud;
 }

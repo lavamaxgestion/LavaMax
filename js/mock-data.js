@@ -6,6 +6,7 @@
 import {
   ESTADO_PAGO_DEFAULT,
   buildReporteFinanciero,
+  enrichPayloadPago,
   normalizeSolicitudPago,
 } from "./finanzas.js";
 import { fechaHoyISO, sumarDiasISO } from "./fecha-co.js";
@@ -163,6 +164,7 @@ export function createSeedData() {
         estado: "entregada",
         estado_pago: "pago parcial",
         monto_pagado: 10000,
+        fecha_pago: todayStr(),
         notas: "Abono al entregar; saldo al recoger",
       },
       {
@@ -201,7 +203,28 @@ export function createSeedData() {
         estado: "recogida",
         estado_pago: "pago efectivo",
         monto_pagado: "",
-        notas: "Ya cobrado en recogida",
+        fecha_pago: addDaysStr(-1),
+        notas: "Cobrada ayer (no debe salir en Ya pagadas)",
+      },
+      {
+        id: "sol-005b",
+        fecha_solicitud: nowStr(),
+        cliente_nombre: "Carmen Rios",
+        cliente_telefono: "314 111 2233",
+        direccion: "Usaquen, Calle 119 #7-45",
+        fecha_entrega: todayStr(),
+        hora_entrega: "07:00",
+        lavadora_id: inv3,
+        lavadora_codigo: "LAV-03",
+        dias_alquiler: 1,
+        horas_alquiler: 12,
+        tarifa_id: tar2,
+        total: 15000,
+        estado: "recogida",
+        estado_pago: "pago transferencia",
+        monto_pagado: "",
+        fecha_pago: todayStr(),
+        notas: "Cobrada hoy - debe aparecer en Ya pagadas",
       },
       {
         id: "sol-006",
@@ -373,7 +396,12 @@ export async function mockRequest(method, params = {}, body = null) {
               (r) => String(r.id) === String(params.id)
             );
             if (idx < 0) throw new Error("Registro no encontrado");
-            store.solicitudes[idx] = { ...store.solicitudes[idx], ...body };
+            const prev = store.solicitudes[idx];
+            const merged = enrichPayloadPago(body, {
+              estado_pago: prev.estado_pago,
+              monto_pagado: prev.monto_pagado,
+            });
+            store.solicitudes[idx] = { ...prev, ...merged };
             saveStore(store);
             return { ok: true, data: store.solicitudes[idx] };
           }
@@ -383,6 +411,7 @@ export async function mockRequest(method, params = {}, body = null) {
             estado: "pendiente",
             estado_pago: ESTADO_PAGO_DEFAULT,
             monto_pagado: "",
+            fecha_pago: "",
             horas_alquiler: body.horas_alquiler || (Number(body.dias_alquiler) || 1) * 24,
             ...body,
           };

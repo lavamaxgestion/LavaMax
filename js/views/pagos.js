@@ -15,9 +15,10 @@ import {
   pagoBadgeClass,
   normalizeSolicitudPago,
   buildPagosStats,
-  isOrdenVisibleEnPagos,
+  enrichPayloadPago,
+  isOrdenVisibleEnVistaPagos,
   tieneSaldoPorCobrar,
-  isOrdenCobradaCompleta,
+  isOrdenPagadaHoy,
   normalizarEstadoPago,
 } from "../finanzas.js";
 import {
@@ -75,7 +76,7 @@ export async function renderPagos(container) {
     const items = sortByRecogida(
       (data || [])
         .map(normalizeSolicitudPago)
-        .filter((i) => isOrdenVisibleEnPagos(i)),
+        .filter((i) => isOrdenVisibleEnVistaPagos(i)),
       { descendente: false }
     );
     renderPagosList(container, items);
@@ -100,9 +101,9 @@ function renderPagosList(container, items) {
         <div class="stat-value stat-value-por-cobrar" id="pagos-stat-por-cobrar">${formatMoney(stats.por_cobrar)}</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Cobrado</div>
-        <div class="stat-value stat-value-ingresos" id="pagos-stat-cobrado">${formatMoney(stats.cobrado_total)}</div>
-        <div class="stat-hint" id="pagos-stat-cobrado-detalle">En ruta ${formatMoney(stats.cobrado_en_ruta)} · Recogidas ${formatMoney(stats.cobrado_recogidas)}</div>
+        <div class="stat-label">Cobrado hoy</div>
+        <div class="stat-value stat-value-ingresos" id="pagos-stat-cobrado">${formatMoney(stats.cobrado_hoy)}</div>
+        <div class="stat-hint" id="pagos-stat-cobrado-detalle">Hoy ${formatMoney(stats.cobrado_hoy)} · Anteriores ${formatMoney(stats.cobrado_anteriores)}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Pendientes de pago</div>
@@ -151,7 +152,7 @@ function renderPagosList(container, items) {
         <div id="pagos-list"></div>
       </div>
       <div id="pagos-panel-pagadas" class="report-panel" role="tabpanel" aria-labelledby="pagos-tab-pagadas" hidden>
-        <p class="hint report-rango-hint">Cobros ya registrados (efectivo, transferencia o parcial).</p>
+        <p class="hint report-rango-hint">Ordenes saldadas hoy (efectivo, transferencia o abono que completo el total).</p>
         <label class="field entregas-buscar">
           <span>Buscar</span>
           <input type="search" id="filter-pagadas-buscar" placeholder="Cliente, telefono o lavadora" />
@@ -173,10 +174,10 @@ function renderPagosList(container, items) {
   function updateStats() {
     const s = buildPagosStats(items);
     document.getElementById("pagos-stat-por-cobrar").textContent = formatMoney(s.por_cobrar);
-    document.getElementById("pagos-stat-cobrado").textContent = formatMoney(s.cobrado_total);
+    document.getElementById("pagos-stat-cobrado").textContent = formatMoney(s.cobrado_hoy);
     const detalle = document.getElementById("pagos-stat-cobrado-detalle");
     if (detalle) {
-      detalle.textContent = `En ruta ${formatMoney(s.cobrado_en_ruta)} · Recogidas ${formatMoney(s.cobrado_recogidas)}`;
+      detalle.textContent = `Hoy ${formatMoney(s.cobrado_hoy)} · Anteriores ${formatMoney(s.cobrado_anteriores)}`;
     }
     document.getElementById("pagos-stat-pendientes").textContent = String(s.pendientes_pago);
     document.getElementById("pagos-stat-recoger").textContent = String(s.listos_recoger);
@@ -337,7 +338,7 @@ function renderPagosList(container, items) {
 
   function paintPagadas() {
     let filtered = sortByRecogida(
-      items.filter((i) => isOrdenCobradaCompleta(i)),
+      items.filter((i) => isOrdenPagadaHoy(i)),
       { descendente: false }
     );
     const q = filterPagadasBuscar.value.trim().toLowerCase();
@@ -353,7 +354,7 @@ function renderPagosList(container, items) {
     mountList(
       listPagadas,
       filtered,
-      "No hay ordenes pagadas con ese criterio."
+      "No hay ordenes cobradas hoy con ese criterio."
     );
   }
 
@@ -364,10 +365,11 @@ function renderPagosList(container, items) {
     paintPagadas();
   }
 
-  async function guardarSolicitud(id, payload, item, mensaje) {
+  async function guardarSolicitud(id, payload, item, mensaje, snapshot) {
+    const body = enrichPayloadPago(payload, snapshot);
     try {
-      const res = await api.updateSolicitud(id, payload);
-      Object.assign(item, res.data || payload);
+      const res = await api.updateSolicitud(id, body);
+      Object.assign(item, res.data || body);
       normalizeSolicitudPago(item);
       window.showToast?.(mensaje, "success");
       return true;
@@ -539,7 +541,7 @@ function setupPagoDialog() {
     if (!confirm(msg)) return;
 
     setSubmitLoading();
-    const ok = await guardar(item.id, payload, item, "Cambios guardados");
+    const ok = await guardar(item.id, payload, item, "Cambios guardados", snapshot);
     if (!ok) {
       resetSubmitBtn();
       return;
