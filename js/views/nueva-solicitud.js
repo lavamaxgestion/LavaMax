@@ -1,4 +1,5 @@
 import { api, formatMoney } from "../api.js";
+import { fechaHoyISO } from "../fecha-co.js";
 import { ESTADO_PAGO_DEFAULT, normalizeSolicitudPago } from "../finanzas.js";
 import {
   getHorasAlquiler,
@@ -228,7 +229,7 @@ export async function renderNuevaSolicitud(container, topbar) {
   }
 
   const inventario = inventarioParaFormulario(inventarioAll, solicitud, isEdit);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaHoyISO();
   const tarifaDefault = tarifas[0];
   const periodos = solicitud ? periodosFromSolicitud(solicitud, tarifas) : 1;
 

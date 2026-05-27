@@ -1,4 +1,5 @@
 import { getFechaHoraRecogida } from "./alquiler.js";
+import { fechaEnZonaISO } from "./fecha-co.js";
 import { toFechaISO } from "./sheets-normalize.js";
 import { isPorEntregar, normalizarEstadoGestion } from "./estados.js";
 
@@ -6,10 +7,7 @@ export function getFechaFiltroISO(item, fechaTipo = "entrega") {
   if (fechaTipo === "recogida") {
     const recogida = getFechaHoraRecogida(item);
     if (!recogida) return null;
-    const y = recogida.getFullYear();
-    const m = String(recogida.getMonth() + 1).padStart(2, "0");
-    const d = String(recogida.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    return fechaEnZonaISO(recogida);
   }
   return toFechaISO(item.fecha_entrega) || null;
 }

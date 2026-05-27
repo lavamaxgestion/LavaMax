@@ -1,3 +1,4 @@
+import { combineFechaHoraCO, fechaCivilParaDisplay } from "./fecha-co.js";
 import { normalizeSolicitudAlquiler, isRecogidaVencida } from "./alquiler.js";
 import { isOrdenEnRuta, normalizarEstadoGestion } from "./estados.js";
 
@@ -124,11 +125,12 @@ export function buildPagosStats(items) {
 }
 
 export function buildReporteFinanciero(solicitudes, desde, hasta) {
-  const d0 = desde ? new Date(desde + "T00:00:00") : new Date(0);
-  const d1 = hasta ? new Date(hasta + "T23:59:59") : new Date();
+  const d0 = desde ? combineFechaHoraCO(desde, "00:00") : new Date(0);
+  const d1 = hasta ? combineFechaHoraCO(hasta, "23:59") : new Date();
 
   const filtered = solicitudes.filter((r) => {
-    const fe = new Date(r.fecha_entrega + "T12:00:00");
+    const fe = fechaCivilParaDisplay(r.fecha_entrega);
+    if (!fe) return false;
     return fe >= d0 && fe <= d1;
   });
 

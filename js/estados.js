@@ -1,3 +1,5 @@
+import { fechaHoyISO } from "./fecha-co.js";
+
 /** Estados de gestion de la solicitud (entrega / recogida). */
 
 export const ESTADOS_GESTION = [
@@ -60,7 +62,7 @@ export function opcionesGestionOrdenes(estadoActual) {
 }
 
 export function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaHoyISO();
 }
 
 /** Solicitud con entrega programada para hoy (excluye cancelada y recogida). */

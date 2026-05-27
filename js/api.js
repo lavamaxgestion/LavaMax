@@ -1,3 +1,4 @@
+import { combineFechaHoraCO, fechaCivilParaDisplay } from "./fecha-co.js";
 import { mockRequest } from "./mock-data.js";
 import {
   normalizeSolicitudesList,
@@ -222,17 +223,23 @@ function toHoraSort(h) {
 export { sortByRecogida, formatFechaHoraRecogida, formatDuracionAlquiler, isRecogidaVencida } from "./alquiler.js";
 
 export function isUrgent(item) {
-  const entrega = new Date(
-    item.fecha_entrega + "T" + (item.hora_entrega || "23:59")
+  const entrega = combineFechaHoraCO(
+    item.fecha_entrega,
+    item.hora_entrega || "23:59"
   );
+  if (!entrega) return false;
   const diff = entrega - Date.now();
   return diff > 0 && diff < 24 * 60 * 60 * 1000;
 }
 
 export function formatDate(iso) {
   if (!iso) return "-";
-  const d = new Date(iso.includes("T") ? iso : iso + "T12:00:00");
-  return d.toLocaleDateString("es", {
+  const d = iso.includes("T")
+    ? new Date(iso)
+    : fechaCivilParaDisplay(iso) || new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("es-CO", {
+    timeZone: "America/Bogota",
     weekday: "short",
     day: "numeric",
     month: "short",

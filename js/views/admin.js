@@ -9,6 +9,7 @@ import {
   normalizarEstadoPago,
   cuentaEnCarteraReporteAdmin,
 } from "../finanzas.js";
+import { fechaHoyISO, inicioMesISO } from "../fecha-co.js";
 import { ESTADOS_GESTION, normalizarEstadoGestion } from "../estados.js";
 
 function esc(s) {
@@ -111,11 +112,8 @@ export async function renderUsuarios(container) {
 }
 
 export async function renderReportes(container) {
-  const hoy = new Date();
-  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const fin = hoy.toISOString().slice(0, 10);
+  const inicio = inicioMesISO();
+  const fin = fechaHoyISO();
 
   container.innerHTML = `
     <div class="card">

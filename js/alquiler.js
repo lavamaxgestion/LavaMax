@@ -1,5 +1,7 @@
 /** Duracion del alquiler y fecha/hora de recogida (cobro al recoger). */
 
+import { combineFechaHoraCO } from "./fecha-co.js";
+
 export const HORAS_ALQUILER_DEFAULT = 24;
 
 export function getHorasAlquiler(solicitud) {
@@ -12,9 +14,8 @@ export function getHorasAlquiler(solicitud) {
 export function getFechaHoraRecogida(solicitud) {
   const fecha = solicitud.fecha_entrega;
   if (!fecha) return null;
-  const hora = solicitud.hora_entrega || "00:00";
-  const inicio = new Date(`${fecha}T${hora}`);
-  if (Number.isNaN(inicio.getTime())) return null;
+  const inicio = combineFechaHoraCO(fecha, solicitud.hora_entrega || "00:00");
+  if (!inicio) return null;
   return new Date(inicio.getTime() + getHorasAlquiler(solicitud) * 60 * 60 * 1000);
 }
 

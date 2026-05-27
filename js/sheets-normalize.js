@@ -2,6 +2,8 @@
  * Normaliza valores que vienen de Google Sheets (fechas/horas como ISO o serial).
  */
 
+import { fechaEnZonaISO } from "./fecha-co.js";
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -13,22 +15,19 @@ export function toFechaISO(val) {
   if (typeof val === "string") {
     const m = val.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m) return m[1];
-    const d = new Date(val);
-    if (!Number.isNaN(d.getTime())) {
-      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    }
+    const iso = fechaEnZonaISO(new Date(val));
+    if (iso) return iso;
     return val;
   }
 
   if (typeof val === "number") {
-    const d = new Date(val);
-    if (!Number.isNaN(d.getTime())) {
-      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    }
+    const iso = fechaEnZonaISO(new Date(val));
+    if (iso) return iso;
   }
 
   if (val instanceof Date && !Number.isNaN(val.getTime())) {
-    return `${val.getFullYear()}-${pad2(val.getMonth() + 1)}-${pad2(val.getDate())}`;
+    const iso = fechaEnZonaISO(val);
+    if (iso) return iso;
   }
 
   return String(val);

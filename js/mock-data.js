@@ -8,6 +8,7 @@ import {
   buildReporteFinanciero,
   normalizeSolicitudPago,
 } from "./finanzas.js";
+import { fechaHoyISO, sumarDiasISO } from "./fecha-co.js";
 import {
   filterSolicitudes,
   buildSolicitudesStats,
@@ -20,13 +21,11 @@ function uuid() {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaHoyISO();
 }
 
 function addDaysStr(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return sumarDiasISO(fechaHoyISO(), days);
 }
 
 function nowStr() {
