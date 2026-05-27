@@ -1,6 +1,10 @@
 import { combineFechaHoraCO, fechaCivilParaDisplay } from "./fecha-co.js";
 import { normalizeSolicitudAlquiler, isRecogidaVencida } from "./alquiler.js";
-import { isOrdenEnRuta, normalizarEstadoGestion } from "./estados.js";
+import {
+  isOrdenEnRuta,
+  isOrdenEntregadaAlCliente,
+  normalizarEstadoGestion,
+} from "./estados.js";
 
 export const ESTADOS_PAGO = [
   "pago pendiente",
@@ -75,9 +79,13 @@ export function isOrdenCobradaCompleta(solicitud) {
   return isOrdenVisibleEnPagos(solicitud) && saldoPendiente(solicitud) === 0;
 }
 
-/** Aun debe dinero (incluye recogida con pago parcial u otros dias). */
+/** Aun debe dinero tras la entrega (incluye recogida con pago parcial u otros dias). */
 export function tieneSaldoPorCobrar(solicitud) {
-  return isOrdenVisibleEnPagos(solicitud) && saldoPendiente(solicitud) > 0;
+  return (
+    isOrdenVisibleEnPagos(solicitud) &&
+    isOrdenEntregadaAlCliente(solicitud) &&
+    saldoPendiente(solicitud) > 0
+  );
 }
 
 /** Alias: ya pagadas = cobro completo. */

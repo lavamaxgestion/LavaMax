@@ -30,14 +30,13 @@ import {
 let pagoDialogBound = false;
 let modalContext = null;
 
-/** Prioridad en Por cobrar: recogida con saldo primero, luego entregada, confirmada. */
+/** Prioridad en Por cobrar: recogida con saldo primero, luego entregada. */
 function sortPorCobrar(items) {
   function prioridad(item) {
     const eg = normalizarEstadoGestion(item.estado);
     if (eg === "recogida") return 0;
     if (eg === "entregada") return 1;
-    if (eg === "confirmada") return 2;
-    return 3;
+    return 2;
   }
 
   return [...items].sort((a, b) => {
@@ -132,7 +131,7 @@ function renderPagosList(container, items) {
             <span>Gestion</span>
             <select id="filter-gestion">
               <option value="">Todas con saldo</option>
-              ${ESTADOS_GESTION.filter((e) => e === "confirmada" || e === "entregada" || e === "recogida")
+              ${ESTADOS_GESTION.filter((e) => e === "entregada" || e === "recogida")
                 .map((e) => `<option value="${e}">${e}</option>`)
                 .join("")}
             </select>

@@ -34,6 +34,12 @@ export function isOrdenEnRuta(solicitud) {
   return e === "confirmada" || e === "entregada";
 }
 
+/** Ya entregada al cliente (en uso o ya recogida). */
+export function isOrdenEntregadaAlCliente(solicitud) {
+  const e = normalizarEstadoGestion(solicitud.estado);
+  return e === "entregada" || e === "recogida";
+}
+
 /** En modal de pagos: solo entregada → recogida. */
 export function puedeCambiarGestionEnPagos(estadoActual) {
   return estadoActual === "entregada";
