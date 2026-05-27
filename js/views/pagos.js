@@ -188,7 +188,8 @@ function renderPagosList(container, items) {
     const saldo = saldoPendiente(item);
     const ep = item.estado_pago || ESTADO_PAGO_DEFAULT;
     const eg = item.estado || "pendiente";
-    const vencida = isRecogidaVencida(item);
+    const vencida =
+      isRecogidaVencida(item) && normalizarEstadoGestion(eg) !== "recogida";
     const saldoPend = saldo > 0;
     const recogidaConSaldo =
       normalizarEstadoGestion(eg) === "recogida" && saldoPend;
